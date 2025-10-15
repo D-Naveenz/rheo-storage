@@ -1,0 +1,37 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36518.9 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rheo.Extensions.Hosting", "Rheo.Extensions.Hosting\Rheo.Extensions.Hosting.csproj", "{B8202C2C-9CB3-4327-A5FB-44C25FA6A16B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rheo.Storage", "Rheo.Storage\Rheo.Storage.csproj", "{9E1CBA1B-A477-9DC6-F224-5F882A2A57D0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rheo.Test", "Rheo.Test\Rheo.Test.csproj", "{FED7FEEA-4AE8-56D0-D0FE-6F01F0441088}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B8202C2C-9CB3-4327-A5FB-44C25FA6A16B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B8202C2C-9CB3-4327-A5FB-44C25FA6A16B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B8202C2C-9CB3-4327-A5FB-44C25FA6A16B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B8202C2C-9CB3-4327-A5FB-44C25FA6A16B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9E1CBA1B-A477-9DC6-F224-5F882A2A57D0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9E1CBA1B-A477-9DC6-F224-5F882A2A57D0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9E1CBA1B-A477-9DC6-F224-5F882A2A57D0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9E1CBA1B-A477-9DC6-F224-5F882A2A57D0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FED7FEEA-4AE8-56D0-D0FE-6F01F0441088}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FED7FEEA-4AE8-56D0-D0FE-6F01F0441088}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FED7FEEA-4AE8-56D0-D0FE-6F01F0441088}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FED7FEEA-4AE8-56D0-D0FE-6F01F0441088}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {17B85777-6BCE-4AE5-97AF-9D8542AAE7A4}
+	EndGlobalSection
+EndGlobal
