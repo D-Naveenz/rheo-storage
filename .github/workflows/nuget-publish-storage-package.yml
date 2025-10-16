@@ -35,8 +35,13 @@ jobs:
     - name: Run tests
       run: dotnet test ${{ env.Test_Project_Path }} --configuration Release --no-build --verbosity normal --filter "Category=Storage"
 
-    - name: Pack NuGet package
-      run: dotnet pack ${{ env.Storage_Project_Path }} --configuration Release --no-build --output ./nupkg
-
-    - name: Publish NuGet package
-      run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json
+    - name: NuGet Publisher
+      # You may pin to the exact commit or the version.
+      # uses: Jacup/publish-nuget@0d7b0c6f119fadaf9c3e2bcfcbb3bf3a1c439864
+      uses: Jacup/publish-nuget@v2.6.0
+      with:
+        # Filepath of the project to be packaged, relative to root of repository
+        PROJECT_FILE_PATH: env.Storage_Project_Path
+        # API key to authenticate with NuGet server
+        NUGET_KEY: secrets.NUGET_API_KEY
+          
