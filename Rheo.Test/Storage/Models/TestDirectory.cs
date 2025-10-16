@@ -36,9 +36,9 @@ namespace Rheo.Test.Storage.Models
         /// <returns>A <see cref="TestDirectory"/> instance representing the created directory.</returns>
         public static TestDirectory Create()
         {
-            var uniqeId = Guid.NewGuid().ToString();
+            var uniqueId = Guid.NewGuid().ToString();
             // Combine the prefix, unique ID, and temporary path to create the full path
-            var folderName = $"Rheo_{uniqeId}";
+            var folderName = $"Rheo_{uniqueId}";
             var fullPath = Path.Combine(Path.GetTempPath(), folderName);
 
             // Create the directory at the specified path
