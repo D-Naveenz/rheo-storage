@@ -63,20 +63,38 @@ namespace Rheo.Test.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] TestData_DocumentFile {
+        internal static byte[] TestData_Document {
             get {
-                object obj = ResourceManager.GetObject("TestData_DocumentFile", resourceCulture);
+                object obj = ResourceManager.GetObject("TestData_Document", resourceCulture);
                 return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to .pdf.
+        /// </summary>
+        internal static string TestData_Document_Extension {
+            get {
+                return ResourceManager.GetString("TestData_Document_Extension", resourceCulture);
             }
         }
         
         /// <summary>
         ///   Looks up a localized resource of type System.Byte[].
         /// </summary>
-        internal static byte[] TestData_VideoFile {
+        internal static byte[] TestData_Video {
             get {
-                object obj = ResourceManager.GetObject("TestData_VideoFile", resourceCulture);
+                object obj = ResourceManager.GetObject("TestData_Video", resourceCulture);
                 return ((byte[])(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to .mp4.
+        /// </summary>
+        internal static string TestData_Video_Extension {
+            get {
+                return ResourceManager.GetString("TestData_Video_Extension", resourceCulture);
             }
         }
     }
