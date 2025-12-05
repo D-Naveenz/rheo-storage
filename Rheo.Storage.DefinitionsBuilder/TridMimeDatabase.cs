@@ -1,5 +1,5 @@
 ﻿using Rheo.Storage.DefinitionsBuilder.Models;
-using Rheo.Storage.DefinitionsBuilder.TrID.Models;
+using Rheo.Storage.DefinitionsBuilder.RIFF.Models;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -13,12 +13,10 @@ namespace Rheo.Storage.DefinitionsBuilder
 
     public static class TridMimeDatabase
     {
-        public static List<MimeDatabaseEntry> BuildMimeDatabase(TrIDDefinitionsBlock definitionsBlock)
+        public static List<MimeDatabaseEntry> BuildMimeDatabase(Dictionary<int, List<TrIDDefinition>> definitionsBlock)
         {
-            // var mimeEntries = new List<MimeDatabaseEntry>();
-
             // Flatten all definitions
-            var allDefinitions = definitionsBlock.DefinitionsByFirstByte
+            var allDefinitions = definitionsBlock
                 .SelectMany(kvp => kvp.Value)
                 .Where(d => !string.IsNullOrEmpty(d.MimeType))
                 .ToList();

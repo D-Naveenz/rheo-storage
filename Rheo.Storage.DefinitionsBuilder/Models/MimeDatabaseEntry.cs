@@ -1,4 +1,4 @@
-﻿using Rheo.Storage.DefinitionsBuilder.TrID.Models;
+﻿using Rheo.Storage.DefinitionsBuilder.Models.Definition;
 
 namespace Rheo.Storage.DefinitionsBuilder.Models
 {

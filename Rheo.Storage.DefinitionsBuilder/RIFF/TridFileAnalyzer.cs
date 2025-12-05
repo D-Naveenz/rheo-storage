@@ -1,6 +1,6 @@
-﻿using Rheo.Storage.DefinitionsBuilder.TrID.Models;
+﻿using Rheo.Storage.DefinitionsBuilder.RIFF.Models;
 
-namespace Rheo.Storage.DefinitionsBuilder.TrID
+namespace Rheo.Storage.DefinitionsBuilder.RIFF
 {
     public static class TridFileAnalyzer
     {
@@ -22,7 +22,7 @@ namespace Rheo.Storage.DefinitionsBuilder.TrID
         /// langword="true"/>, string checks are performed; otherwise, only pattern matching is used.</param>
         /// <returns>A list of <see cref="TrIDResult"/> objects representing the matching file type definitions, including their
         /// respective scores and percentages. Returns an empty list if no matches are found.</returns>
-        public static List<TrIDResult> AnalyzeFile(string filePath, TrIDDefinitionsBlock definitionsBlock, bool checkStrings = true)
+        public static List<TrIDResult> AnalyzeFile(string filePath, Dictionary<int, List<TrIDDefinition>> definitionsBlock, bool checkStrings = true)
         {
             var results = new List<TrIDResult>();
             var foundCache = new HashSet<string>();
@@ -47,11 +47,11 @@ namespace Rheo.Storage.DefinitionsBuilder.TrID
 
             // Get definitions based on first byte
             var definitionsToCheck = new List<TrIDDefinition>();
-            definitionsToCheck.AddRange(definitionsBlock.DefinitionsByFirstByte[-1]);
+            definitionsToCheck.AddRange(definitionsBlock[-1]);
 
             if (frontBlock.Length > 0)
             {
-                definitionsToCheck.AddRange(definitionsBlock.DefinitionsByFirstByte[frontBlock[0]]);
+                definitionsToCheck.AddRange(definitionsBlock[frontBlock[0]]);
             }
 
             byte[]? fileBuffer = null;
@@ -161,7 +161,7 @@ namespace Rheo.Storage.DefinitionsBuilder.TrID
             // Calculate percentages
             foreach (var result in results)
             {
-                result.Percentage = (result.Points * 100.0) / totalPoints;
+                result.Percentage = result.Points * 100.0 / totalPoints;
             }
 
             // Sort by points (descending)

@@ -1,4 +1,6 @@
-﻿namespace Rheo.Storage.DefinitionsBuilder.TrID.Models
+﻿using Rheo.Storage.DefinitionsBuilder.Models.Definition;
+
+namespace Rheo.Storage.DefinitionsBuilder.RIFF.Models
 {
     public class TrIDDefinition
     {

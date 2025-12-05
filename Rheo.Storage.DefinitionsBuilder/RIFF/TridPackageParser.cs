@@ -1,6 +1,7 @@
-﻿using Rheo.Storage.DefinitionsBuilder.TrID.Models;
+﻿using Rheo.Storage.DefinitionsBuilder.Models.Definition;
+using Rheo.Storage.DefinitionsBuilder.RIFF.Models;
 
-namespace Rheo.Storage.DefinitionsBuilder.TrID
+namespace Rheo.Storage.DefinitionsBuilder.RIFF
 {
     public static class TridPackageParser
     {
@@ -31,10 +32,9 @@ namespace Rheo.Storage.DefinitionsBuilder.TrID
         /// Definitions without a valid first byte are grouped under a catch-all key.</remarks>
         /// <param name="filePath">The path to the file containing the TrID definitions package. The file must be a valid RIFF file with a TrID
         /// definitions block.</param>
-        /// <returns>A <see cref="TrIDDefinitionsBlock"/> containing the parsed definitions, organized by the first byte of their
-        /// patterns.</returns>
+        /// <returns>A Dictionary containing the parsed definitions, organized by the first byte of their patterns.</returns>
         /// <exception cref="InvalidDataException">Thrown if the file is not a valid RIFF file or does not contain a TrID definitions block.</exception>
-        public static TrIDDefinitionsBlock ParsePackage(string filePath)
+        public static Dictionary<int, List<TrIDDefinition>> ParsePackage(string filePath)
         {
             using var fileStream = File.OpenRead(filePath);
             using var reader = new BinaryReader(fileStream);
@@ -91,12 +91,7 @@ namespace Rheo.Storage.DefinitionsBuilder.TrID
                 }
             }
 
-            return new TrIDDefinitionsBlock
-            {
-                Version = 1,
-                DefinitionCount = definitions.Count,
-                DefinitionsByFirstByte = definitionsByFirstByte
-            };
+            return definitionsByFirstByte;
         }
 
         private static List<TrIDDefinition> ParseDefinitionsBlock(byte[] block)
@@ -248,7 +243,7 @@ namespace Rheo.Storage.DefinitionsBuilder.TrID
                         definition.Tag = BitConverter.ToInt32(infoData, 0);
                         break;
                     case MIME_CHUNK_ID:
-                        definition.MimeType = text;
+                        definition.MimeType = text.Replace("\"", ""); // Some MIME type strings contains residual " chars
                         break;
                     case NAME_CHUNK_ID:
                         definition.FileName = text;

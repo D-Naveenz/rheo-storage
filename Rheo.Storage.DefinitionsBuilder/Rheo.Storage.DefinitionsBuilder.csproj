@@ -10,9 +10,17 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Update="Data\triddefs.trd">
+    <None Remove="Data\trid.py" />
+    <None Remove="Data\triddefs.trd" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Data\trid.py">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
+    </Content>
+    <Content Include="Data\triddefs.trd">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>
