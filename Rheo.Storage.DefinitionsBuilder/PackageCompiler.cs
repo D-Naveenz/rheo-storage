@@ -1,4 +1,5 @@
-﻿using Rheo.Storage.DefinitionsBuilder.Models.Definition;
+﻿using MessagePack;
+using Rheo.Storage.DefinitionsBuilder.Models.Definition;
 using Rheo.Storage.DefinitionsBuilder.Models.Package;
 using Rheo.Storage.DefinitionsBuilder.RIFF;
 using Rheo.Storage.DefinitionsBuilder.RIFF.Models;
@@ -170,14 +171,17 @@ namespace Rheo.Storage.DefinitionsBuilder
             var json = JsonSerializer.Serialize(CollectionMetadata, PackageMetadataJsonContext.Default.Metadata);
             File.WriteAllText(outputPath, json);
 
-            Console.WriteLine("Package metadata has created in {0}", outputPath);
+            Console.WriteLine("Package metadata has been created in {0}", OutputJson);
         }
 
         private void ExportToBinary(string outputPath)
         {
             outputPath = Path.Combine(outputPath, OutputPackage);
 
-            // TODO: Implement binary export
+            var package = MessagePackSerializer.Serialize(Definitions);
+            File.WriteAllBytes(outputPath, package);
+            
+            Console.WriteLine("Package has been exported to {0}", OutputPackage);
         }
     }
 
