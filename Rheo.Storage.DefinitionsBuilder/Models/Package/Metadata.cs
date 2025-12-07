@@ -2,8 +2,7 @@
 {
     public class Metadata
     {
-        public TrIDInfo DefinitionsInfo { get; set; } = new();
-        public PackageInfo PackageInfo { get; set; } = new();
-        public List<string> Categories { get; set; } = [];
+        public TrIDInfo Source { get; set; } = new();
+        public PackageInfo Package { get; set; } = new();
     }
 }

@@ -14,10 +14,23 @@
         /// Gets the absolute path to the assets directory.
         /// </summary>
         public static string AssetsPath => Path.GetFullPath(ASSETS_PATH);
+
         /// <summary>
         /// Gets the file system path to the TrID directory within the assets folder.
         /// </summary>
         public static string TridLocation => Path.Combine(AssetsPath, "TrID");
+
+        /// <summary>
+        /// Gets the version of the current executing assembly in the format "Major.Minor".
+        /// </summary>
+        public static string Version
+        {
+            get
+            {
+                var versionInfo = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+                return versionInfo != null ? string.Concat(versionInfo.Major, '.', versionInfo.Minor) : "1.0";
+            }
+        }
 
         /// <summary>
         /// Determines the output path to use, defaulting to a directory named "Output" in the current working directory

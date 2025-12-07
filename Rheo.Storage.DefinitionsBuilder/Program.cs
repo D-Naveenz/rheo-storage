@@ -13,6 +13,6 @@ var packager = new PackageCompiler();
 Console.WriteLine($"Loaded {packager.Block.Count} definitions");
 
 packager.Compile();
-Console.WriteLine($"\nGenerated {packager.CollectionMetadata.PackageInfo.TotalDefinitions} MIME entries");
+// Console.WriteLine($"\nGenerated {packager.CollectionMetadata.PackageInfo.TotalDefinitions} MIME entries");
 
 Console.WriteLine("\nDatabase ready for Rheo.Storage!");
