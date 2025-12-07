@@ -2,16 +2,13 @@
 {
     public class TrIDInfo
     {
-        public const string FILE_NAME = "triddefs.trd";
-        public const string AUTHOR = "Marco Pontello";
-        public const string SOFTWARE = "TrID - File Identifier";
-        public const string WEBSITE = "http://mark0.net/soft-trid-e.html";
+        private const string PROGRAM = "TrID - File Identifier";
+
+        public const string SCRIPT_NAME = "trid.py";
+        public const string PACKAGE_NAME = "triddefs.trd";
 
         // Constants representing as properties for easier serialization
-        public string FileName => FILE_NAME;
-        public string Author => AUTHOR;
-        public string Software => SOFTWARE;
-        public string Website => WEBSITE;
+        public string Program => PROGRAM;
         public string Version { get; set; } = string.Empty;
         public int TotalRecords { get; set; }
     }

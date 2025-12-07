@@ -11,8 +11,9 @@ namespace Rheo.Storage.DefinitionsBuilder
 {
     public class PackageCompiler
     {
-        private readonly string _tridVersion;
-        private readonly string _packagePath;
+        private readonly string _scriptPath;
+
+        private int _cleanseCursorTop = 0;
 
         public Dictionary<int, List<TrIDDefinition>> Block { get; }
 
@@ -20,24 +21,19 @@ namespace Rheo.Storage.DefinitionsBuilder
         {
             // Verify paths
             var errormessage = "Couldn't find the TrID - File Identifier or the data package in the Data Folder.";
-            var scriptPath = Path.GetFullPath(Path.Combine(Configuration.TridLocation, Configuration.TRID_SCRIPT_NAME));
-            if (!File.Exists(scriptPath))
+            _scriptPath = Path.GetFullPath(Path.Combine(Configuration.TridLocation, TrIDInfo.SCRIPT_NAME));
+            if (!File.Exists(_scriptPath))
             {
-                throw new FileNotFoundException(errormessage, Configuration.TRID_SCRIPT_NAME);
+                throw new FileNotFoundException(errormessage, TrIDInfo.SCRIPT_NAME);
             }
-            _packagePath = Path.GetFullPath(Path.Combine(Configuration.TridLocation, Configuration.TRID_PACKAGE_NAME));
-            if (!File.Exists(_packagePath))
+            var packagePath = Path.GetFullPath(Path.Combine(Configuration.TridLocation, TrIDInfo.PACKAGE_NAME));
+            if (!File.Exists(packagePath))
             {
-                throw new FileNotFoundException(errormessage, Configuration.TRID_PACKAGE_NAME);
+                throw new FileNotFoundException(errormessage, TrIDInfo.PACKAGE_NAME);
             }
-
-            // Configure metadata
-            _tridVersion = GetTrIDVersion(scriptPath);
 
             // Parse TrID package
-            Block = TridPackageParser.ParsePackage(_packagePath);
-
-            Console.WriteLine("TrID Package Detected. Version: {0}", _tridVersion);
+            Block = TridPackageParser.ParsePackage(packagePath);
         }
 
         public void Compile(string? outputPath = null)
@@ -52,31 +48,41 @@ namespace Rheo.Storage.DefinitionsBuilder
                 Directory.CreateDirectory(outputPath);
             }
 
+            // Get TrID version
+            var tridVersion = GetTrIDVersion(_scriptPath);
+            Console.WriteLine("TrID Package Detected. Version: {0}", tridVersion);
+
             // Build
-            var definitions = BuildDefinitions(Block, outputPath);
+            Console.WriteLine("Building definitions...");
+            var definitionDictionary = BuildDefinitions(Block, outputPath);
+            var definitions = definitionDictionary.Flatten();
 
             // Build package metadata
+            Console.WriteLine("Building package metadata...");
             var metadata = new Metadata
             {
                 Source = new TrIDInfo
                 {
                     TotalRecords = Block.Sum(kvp => kvp.Value.Count),
-                    Version = _tridVersion
+                    Version = tridVersion
                 },
                 Package = new PackageInfo
                 {
                     Version = Configuration.Version,
                     CreatedAt = DateTime.UtcNow,
                     TotalDefinitions = definitions.Count,
+                    TotalMimeTypes = definitionDictionary.Count,
                 }
             };
 
             // Compile
             ExportToJson(metadata, outputPath);
+            Console.WriteLine("Package metadata has been exported to {0}", Configuration.FILEDEF_METADATA_NAME);
             ExportToBinary(definitions, outputPath);
+            Console.WriteLine("Package has been exported to {0}", Configuration.FILEDEF_PACKAGE_NAME);
         }
 
-        private static List<Definition> BuildDefinitions(Dictionary<int, List<TrIDDefinition>> definitionsBlock, string outputPath)
+        private Dictionary<string, List<Definition>> BuildDefinitions(Dictionary<int, List<TrIDDefinition>> definitionsBlock, string outputPath)
         {
             // Build the definition collection
             var definitions = definitionsBlock
@@ -97,11 +103,14 @@ namespace Rheo.Storage.DefinitionsBuilder
                 .OrderByDescending(d => d.PriorityLevel)
                 .ToList();
 
-            var definitionDictionary = definitions.GroupByMimeType().Cleanse();
-            definitionDictionary.CreateMemoryDump(Configuration.GetDumpPath(outputPath));
-            definitions = definitionDictionary.Flatten();
+            Console.WriteLine("Validading Definitions...");
+            var progressReporter = CreateProgressReporter();
+            var definitionDictionary = definitions.GroupByMimeType().Cleanse(progressReporter);
+            var dumpPath = Configuration.GetDumpPath(outputPath);
+            definitionDictionary.CreateMemoryDump(dumpPath);
+            Console.WriteLine("Memory dump has been created in {0}", dumpPath);
 
-            return definitions;
+            return definitionDictionary;
         }
 
         private static int CalculatePriority(TrIDDefinition definition)
@@ -119,6 +128,33 @@ namespace Rheo.Storage.DefinitionsBuilder
             priority += definition.Patterns.Count * 10;
 
             return priority;
+        }
+
+        private SynchronousProgress<MimeCleanseProgressReport> CreateProgressReporter()
+        {
+            // Initialize cursor position for progress reporting
+            _cleanseCursorTop = Console.GetCursorPosition().Top;
+            Console.SetCursorPosition(0, _cleanseCursorTop);
+
+            return new SynchronousProgress<MimeCleanseProgressReport>(report =>
+            {
+                // Clear current line and update progress
+                Console.SetCursorPosition(0, _cleanseCursorTop);
+
+                // Clean the lines
+                for (int i = 0; i < 2; i++)
+                {
+                    Console.WriteLine(new string(' ', Console.WindowWidth));
+                }
+
+                // Reset cursor position
+                Console.SetCursorPosition(0, _cleanseCursorTop);
+
+                // Write progress report
+                // Console.WriteLine($"Type: {report.CurrentMimeType}");
+                Console.WriteLine($"Valid: {report.ValidCount} | Invalid: {report.InvalidCount}");
+                Console.WriteLine($"Progress: {report.ProcessedCount}/{report.TotalCount} ({report.Percentage:F1}%)");
+            });
         }
 
         private static string GetTrIDVersion(string trIdPath)
@@ -153,8 +189,6 @@ namespace Rheo.Storage.DefinitionsBuilder
 
             var json = JsonSerializer.Serialize(metadata, PackageMetadataJsonContext.Default.Metadata);
             File.WriteAllText(outputPath, json);
-
-            Console.WriteLine("Package metadata has been exported to {0}", Configuration.FILEDEF_METADATA_NAME);
         }
 
         private static void ExportToBinary(List<Definition> definitions, string outputPath)
@@ -163,8 +197,6 @@ namespace Rheo.Storage.DefinitionsBuilder
 
             var package = MessagePackSerializer.Serialize(definitions);
             File.WriteAllBytes(outputPath, package);
-            
-            Console.WriteLine("Package has been exported to {0}", Configuration.FILEDEF_PACKAGE_NAME);
         }
     }
 

@@ -47,30 +47,87 @@ namespace Rheo.Storage.DefinitionsBuilder.Generation
         /// objects associated with those MIME types.</param>
         /// <returns>A new dictionary where the keys are the cleaned MIME types and the values are lists of <see
         /// cref="Definition"/> objects updated with the cleaned MIME types.</returns>
-        public static Dictionary<string, List<Definition>> Cleanse(this Dictionary<string, List<Definition>> definitions)
+        public static Dictionary<string, List<Definition>> Cleanse(
+            this Dictionary<string, List<Definition>> definitions, 
+            IProgress<MimeCleanseProgressReport>? progress = null
+            )
         {
             var grouped = new Dictionary<string, List<Definition>>(StringComparer.OrdinalIgnoreCase);
             var cleaner = new MimeTypeCleaner(MimeTypes.Load());
 
-            foreach (var mime in definitions.Keys)
+            // Calculate total definitions for progress reporting
+            var totalDefinitions = definitions.Values.Sum(list => list.Count);
+            var processedDefinitions = 0;
+            var validDefinitions = 0;
+            var invalidDefinitions = 0;
+
+            // Report initial progress
+            progress?.Report(new MimeCleanseProgressReport
             {
-                var cleanedMime = cleaner.CleanMimeType(mime);
+                CurrentMimeType = "Starting...",
+                ValidCount = 0,
+                InvalidCount = 0,
+                ProcessedCount = 0,
+                TotalCount = totalDefinitions
+            });
+
+            // Process each MIME type group
+            var mimeTypeCount = definitions.Count;
+            var currentMimeIndex = 0;
+
+            foreach (var kvp in definitions)
+            {
+                currentMimeIndex++;
+                string originalMime = kvp.Key;
+                var definitionList = kvp.Value;
+                int groupSize = definitionList.Count;
+
+                // Report current MIME type being processed
+                progress?.Report(new MimeCleanseProgressReport
+                {
+                    CurrentMimeType = $"{originalMime} ({currentMimeIndex}/{mimeTypeCount})",
+                    ValidCount = validDefinitions,
+                    InvalidCount = invalidDefinitions,
+                    ProcessedCount = processedDefinitions,
+                    TotalCount = totalDefinitions
+                });
+
+                var cleanedMime = cleaner.CleanMimeType(originalMime);
 
                 if (cleanedMime == null)
                 {
                     // Handle invalid MIME types separately
-                    _invalidGroupedDefinitions.TryAdd(mime, []);
-                    _invalidGroupedDefinitions[mime].AddRange(definitions[mime]);
-                    continue;
+                    _invalidGroupedDefinitions.TryAdd(originalMime, []);
+                    _invalidGroupedDefinitions[originalMime].AddRange(definitionList);
+                    invalidDefinitions += groupSize;
+                }
+                else
+                {
+                    // Add the updated definitions with cleaned MIME type to the dictionary 
+                    grouped.TryAdd(cleanedMime, []);
+
+                    // Update each definition with the cleaned MIME type
+                    foreach (var definition in definitionList)
+                    {
+                        definition.MimeType = cleanedMime;
+                        grouped[cleanedMime].Add(definition);
+                    }
+
+                    validDefinitions += groupSize;
                 }
 
-                // Add the updated definitions with cleaned MIME type to the dictionary 
-                grouped.TryAdd(cleanedMime, []);
-                grouped[cleanedMime].AddRange([.. definitions[mime]
-                    .Select(d => {
-                        d.MimeType = cleanedMime; return d;
-                    })]);
+                processedDefinitions += groupSize;
             }
+
+            // Final completion report
+            progress?.Report(new MimeCleanseProgressReport
+            {
+                CurrentMimeType = "Completed!",
+                ValidCount = validDefinitions,
+                InvalidCount = invalidDefinitions,
+                ProcessedCount = processedDefinitions,
+                TotalCount = totalDefinitions
+            });
 
             return grouped;
         }
@@ -145,7 +202,6 @@ namespace Rheo.Storage.DefinitionsBuilder.Generation
                 var filePath = Path.Combine(outputPath, fileName);
                 var json = JsonSerializer.Serialize(memoryDump, MemoryDumpJsonContext.Default.MemoryDump);
                 File.WriteAllText(filePath, json);
-                Console.WriteLine($"Memory dump exported to: {filePath}");
             }
             catch (Exception ex)
             {

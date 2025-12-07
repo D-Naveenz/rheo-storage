@@ -5,10 +5,8 @@
         private const string ASSETS_PATH = "Assets";
         private const string DUMP_PATH = "Dumps";
 
-        public const string TRID_SCRIPT_NAME = "trid.py";
-        public const string TRID_PACKAGE_NAME = "triddefs.trd";
         public const string FILEDEF_METADATA_NAME = "filedefs.metadata.json";
-        public const string FILEDEF_PACKAGE_NAME = "filedefs.dat";
+        public const string FILEDEF_PACKAGE_NAME = "filedefs.bin";
 
         /// <summary>
         /// Gets the absolute path to the assets directory.

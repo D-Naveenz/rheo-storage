@@ -8,11 +8,12 @@
 //    Console.WriteLine($"{result.Percentage:F1}% ({result.Definition.Extension}) {result.Definition.FileType}");
 //}
 
-// Build Definitions Package
-var packager = new PackageCompiler();
-Console.WriteLine($"Loaded {packager.Block.Count} definitions");
+Console.WriteLine("Rheo.Storage Definitions Builder v{0}", Configuration.Version);
+Console.WriteLine("=====================================\n");
 
+// Build Definitions Package
+Console.WriteLine("Compiling definitions package...");
+var packager = new PackageCompiler();
 packager.Compile();
-// Console.WriteLine($"\nGenerated {packager.CollectionMetadata.PackageInfo.TotalDefinitions} MIME entries");
 
 Console.WriteLine("\nDatabase ready for Rheo.Storage!");

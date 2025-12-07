@@ -61,18 +61,7 @@
             // Common misspellings and errors
             var commonErrors = new Dictionary<string, string>
             {
-                { "aapplication", "application" },
-                { "applicaiton", "application" },
-                { "appliction", "application" },
-                { "apllication", "application" },
-                { "image/", "image/" }, // Remove duplicate slashes later
-                { "text/", "text/" },
-                { "video/", "video/" },
-                { "audio/", "audio/" },
-                { "chemical/", "chemical/" },
-                { "message/", "message/" },
-                { "model/", "model/" },
-                { "multipart/", "multipart/" }
+                { "aapplication", "application" }
             };
 
             string result = mimeType;
