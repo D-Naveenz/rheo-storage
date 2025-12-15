@@ -178,11 +178,12 @@ namespace Rheo.Storage.DefinitionsBuilder.Generation
             var currentMimeIndex = 0;
 
             AnsiConsole.Progress()
+                .AutoClear(true)
                 .Start(ctx =>
                 {
                     // Define tasks
-                    var task1 = ctx.AddTask("[green]Cleansed Mime Types:[/] (0 valid, 0 invalid)");
-                    var task2 = ctx.AddTask("[green]Cleansed Definitions:[/] (0/0)");
+                    var task1 = ctx.AddTask("[green]Validating Mime Types:[/]");
+                    var task2 = ctx.AddTask("[green]Processing Definitions:[/]");
 
                     foreach (var kvp in definitions)
                     {
@@ -219,11 +220,12 @@ namespace Rheo.Storage.DefinitionsBuilder.Generation
 
                         // Report current MIME type being processed
                         task1.Value = (double)currentMimeIndex / mimeTypeCount * 100;
-                        task1.Description = $"[green]Cleansed Mime Types:[/] ({validDefinitions} valid, {invalidDefinitions} invalid)";
                         task2.Value = (double)processedDefinitions / totalDefinitions * 100;
-                        task2.Description = $"[green]Cleansed Definitions:[/] ({processedDefinitions}/{totalDefinitions})";
                     }
                 });
+
+            Console.WriteLine("Mime types have been cleansed.");
+            Console.WriteLine("Result: {0} valid definitions | {1} invalid definitions", validDefinitions, invalidDefinitions);
 
             return grouped;
         }

@@ -1,4 +1,6 @@
-﻿namespace Rheo.Storage.DefinitionsBuilder
+﻿using System.Reflection;
+
+namespace Rheo.Storage.DefinitionsBuilder
 {
     internal static class Configuration
     {
@@ -25,8 +27,30 @@
         {
             get
             {
-                var versionInfo = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+                var versionInfo = Assembly.GetExecutingAssembly().GetName().Version;
                 return versionInfo != null ? string.Concat(versionInfo.Major, '.', versionInfo.Minor) : "1.0";
+            }
+        }
+
+        /// <summary>
+        /// Gets the product name defined in the assembly's <see cref="AssemblyProductAttribute"/>.
+        /// </summary>
+        /// <remarks>If the assembly does not specify a product name, the value defaults to "Rheo
+        /// Definitions Builder".</remarks>
+        public static string ProductName
+        {
+            get
+            {
+                var assembly = Assembly.GetExecutingAssembly();
+                var attributes = assembly.GetCustomAttributes(typeof(AssemblyProductAttribute), false);
+                if (attributes.Length > 0)
+                {
+                    var productAttribute = (AssemblyProductAttribute)attributes[0];
+                    return productAttribute.Product;
+                }
+
+                // Fallback product name if attribute is not found
+                return "Rheo Definitions Builder";
             }
         }
 
