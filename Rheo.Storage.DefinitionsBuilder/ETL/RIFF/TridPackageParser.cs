@@ -1,7 +1,6 @@
 ﻿using Rheo.Storage.DefinitionsBuilder.Models.Definition;
-using Rheo.Storage.DefinitionsBuilder.RIFF.Models;
 
-namespace Rheo.Storage.DefinitionsBuilder.RIFF
+namespace Rheo.Storage.DefinitionsBuilder.ETL.RIFF
 {
     public static class TridPackageParser
     {

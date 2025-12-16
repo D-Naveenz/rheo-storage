@@ -1,4 +1,4 @@
-﻿namespace Rheo.Storage.DefinitionsBuilder.Generation
+﻿namespace Rheo.Storage.DefinitionsBuilder.ETL.Validation
 {
     internal static class MimeTypes
     {
@@ -23,7 +23,7 @@
             foreach (var csvFile in csvFiles)
             {
                 // Parse CSV and extract mime types column
-                var mimeTypes = MimeTypes.ParseCSV(csvFile).GetDataColumn(1);
+                var mimeTypes = ParseCSV(csvFile).GetDataColumn(1);
                 mimeTypeLists.Add(mimeTypes);
             }
             return MergeColumns([.. mimeTypeLists]);

@@ -4,9 +4,9 @@ using Spectre.Console;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-namespace Rheo.Storage.DefinitionsBuilder.Generation
+namespace Rheo.Storage.DefinitionsBuilder.ETL.Validation
 {
-    internal static class DefinitionExtentions
+    internal static class ValidationExtentions
     {
         private readonly static Dictionary<string, List<Definition>> _invalidGroupedDefinitions = [];
 

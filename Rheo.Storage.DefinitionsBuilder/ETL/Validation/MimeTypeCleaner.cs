@@ -1,4 +1,4 @@
-﻿namespace Rheo.Storage.DefinitionsBuilder.Generation
+﻿namespace Rheo.Storage.DefinitionsBuilder.ETL.Validation
 {
     public class MimeTypeCleaner(HashSet<string> validMimeTypes)
     {
@@ -175,7 +175,7 @@
             float subtypeSimilarity = CalculateStringSimilarity(subtype, candidateSubtype);
 
             // Weight subtype more heavily
-            return (typeSimilarity * 0.3f) + (subtypeSimilarity * 0.7f);
+            return typeSimilarity * 0.3f + subtypeSimilarity * 0.7f;
         }
 
         /// <summary>
@@ -200,7 +200,7 @@
             int maxLength = Math.Max(a.Length, b.Length);
             int distance = LevenshteinDistance(a, b);
 
-            return 1.0f - ((float)distance / maxLength);
+            return 1.0f - (float)distance / maxLength;
         }
 
         /// <summary>
@@ -235,7 +235,7 @@
             {
                 for (int j = 1; j <= b.Length; j++)
                 {
-                    int cost = (a[i - 1] == b[j - 1]) ? 0 : 1;
+                    int cost = a[i - 1] == b[j - 1] ? 0 : 1;
 
                     distances[i, j] = Math.Min(
                         Math.Min(distances[i - 1, j] + 1, distances[i, j - 1] + 1),

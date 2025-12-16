@@ -1,6 +1,6 @@
 ﻿using Rheo.Storage.DefinitionsBuilder.Models.Definition;
 
-namespace Rheo.Storage.DefinitionsBuilder.RIFF.Models
+namespace Rheo.Storage.DefinitionsBuilder.ETL.RIFF
 {
     public class TrIDDefinition
     {

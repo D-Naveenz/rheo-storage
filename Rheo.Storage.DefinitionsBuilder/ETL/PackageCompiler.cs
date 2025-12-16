@@ -1,9 +1,8 @@
 ﻿using MessagePack;
-using Rheo.Storage.DefinitionsBuilder.Generation;
+using Rheo.Storage.DefinitionsBuilder.ETL.RIFF;
+using Rheo.Storage.DefinitionsBuilder.ETL.Validation;
 using Rheo.Storage.DefinitionsBuilder.Models.Definition;
 using Rheo.Storage.DefinitionsBuilder.Models.Package;
-using Rheo.Storage.DefinitionsBuilder.RIFF;
-using Rheo.Storage.DefinitionsBuilder.RIFF.Models;
 using Spectre.Console;
 using System.Text.Json;
 using System.Text.Json.Serialization;

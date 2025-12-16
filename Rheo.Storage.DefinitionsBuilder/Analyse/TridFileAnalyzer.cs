@@ -1,6 +1,6 @@
-﻿using Rheo.Storage.DefinitionsBuilder.RIFF.Models;
+﻿using Rheo.Storage.DefinitionsBuilder.ETL.RIFF;
 
-namespace Rheo.Storage.DefinitionsBuilder.RIFF
+namespace Rheo.Storage.DefinitionsBuilder.Analyse
 {
     public static class TridFileAnalyzer
     {
