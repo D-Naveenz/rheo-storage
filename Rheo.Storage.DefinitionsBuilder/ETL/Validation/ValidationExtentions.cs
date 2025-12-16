@@ -6,19 +6,20 @@ using System.Text.Json.Serialization;
 
 namespace Rheo.Storage.DefinitionsBuilder.ETL.Validation
 {
-    internal static class ValidationExtentions
+    public static class ValidationExtentions
     {
         private readonly static Dictionary<string, List<Definition>> _invalidGroupedDefinitions = [];
 
         /// <summary>
-        /// Groups a list of <see cref="Definition"/> objects by their MIME type.
+        /// Groups a collection of <see cref="Definition"/> objects by their MIME type.
         /// </summary>
-        /// <remarks>Definitions with a null, empty, or whitespace-only MIME type are excluded from the
+        /// <remarks>Definitions with a null, empty, or whitespace <c>MimeType</c> are excluded from the
         /// returned dictionary.</remarks>
-        /// <param name="definitions">The list of <see cref="Definition"/> objects to group. Each object should have a valid MIME type.</param>
-        /// <returns>A dictionary where the keys are MIME types (case-insensitive) and the values are lists of <see
-        /// cref="Definition"/> objects associated with each MIME type.</returns>
-        public static Dictionary<string, List<Definition>> GroupByMimeType(this List<Definition> definitions)
+        /// <param name="definitions">The collection of <see cref="Definition"/> instances to group. Each instance is grouped according to its
+        /// <c>MimeType</c> property.</param>
+        /// <returns>A dictionary where each key is a MIME type string, and each value is a list of <see cref="Definition"/>
+        /// objects that share that MIME type. The dictionary uses case-insensitive string comparison for keys.</returns>
+        public static Dictionary<string, List<Definition>> GroupByMimeType(this IEnumerable<Definition> definitions)
         {
             var groupedDefinitions = new Dictionary<string, List<Definition>>(StringComparer.OrdinalIgnoreCase);
             foreach (var definition in definitions)

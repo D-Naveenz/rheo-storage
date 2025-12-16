@@ -1,6 +1,6 @@
 ﻿namespace Rheo.Storage.DefinitionsBuilder.ETL.Validation
 {
-    public class MimeTypeCleaner(HashSet<string> validMimeTypes)
+    internal class MimeTypeCleaner(HashSet<string> validMimeTypes)
     {
         private readonly HashSet<string> _validMimeTypes = validMimeTypes ?? throw new ArgumentNullException(nameof(validMimeTypes));
         private readonly HashSet<string> _validMimeTypesLower = [.. validMimeTypes.Select(m => m.ToLowerInvariant())];
