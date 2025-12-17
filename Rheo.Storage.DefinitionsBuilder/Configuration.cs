@@ -7,8 +7,7 @@ namespace Rheo.Storage.DefinitionsBuilder
         private const string ASSETS_PATH = "Assets";
         private const string DUMP_PATH = "Dumps";
 
-        public const string FILEDEF_METADATA_NAME = "filedefs.metadata.json";
-        public const string FILEDEF_PACKAGE_NAME = "filedefs.bin";
+        public const string FILEDEF_PACKAGE_NAME = "filedefs";
 
         /// <summary>
         /// Gets the absolute path to the assets directory.

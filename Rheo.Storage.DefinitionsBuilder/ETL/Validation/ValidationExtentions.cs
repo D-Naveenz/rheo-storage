@@ -1,8 +1,5 @@
-﻿using Rheo.Storage.DefinitionsBuilder.Models.Build;
-using Rheo.Storage.DefinitionsBuilder.Models.Definition;
+﻿using Rheo.Storage.DefinitionsBuilder.Models.Definition;
 using Spectre.Console;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 
 namespace Rheo.Storage.DefinitionsBuilder.ETL.Validation
 {
@@ -11,113 +8,43 @@ namespace Rheo.Storage.DefinitionsBuilder.ETL.Validation
         private readonly static Dictionary<string, List<Definition>> _invalidGroupedDefinitions = [];
 
         /// <summary>
-        /// Groups a collection of <see cref="Definition"/> objects by their MIME type.
+        /// Validates a collection of <see cref="Definition"/> objects and returns the results grouped by MIME type.
         /// </summary>
-        /// <remarks>Definitions with a null, empty, or whitespace <c>MimeType</c> are excluded from the
-        /// returned dictionary.</remarks>
-        /// <param name="definitions">The collection of <see cref="Definition"/> instances to group. Each instance is grouped according to its
-        /// <c>MimeType</c> property.</param>
-        /// <returns>A dictionary where each key is a MIME type string, and each value is a list of <see cref="Definition"/>
-        /// objects that share that MIME type. The dictionary uses case-insensitive string comparison for keys.</returns>
-        public static Dictionary<string, List<Definition>> GroupByMimeType(this IEnumerable<Definition> definitions)
+        /// <param name="definitions">The collection of <see cref="Definition"/> objects to validate. Cannot be null.</param>
+        /// <param name="report"><see langword="true"/> to include detailed validation reports in the results; otherwise, <see
+        /// langword="false"/> to return only validation outcomes.</param>
+        /// <returns>A tuple containing two dictionaries, each mapping MIME type strings to lists of <see cref="Definition"/>
+        /// objects: the first dictionary contains valid definitions, and the second contains invalid definitions, both
+        /// grouped by MIME type.</returns>
+        public static (Dictionary<string, List<Definition>>, Dictionary<string, List<Definition>>) Validate(
+            this IEnumerable<Definition> definitions, 
+            bool report = false
+        )
         {
-            var groupedDefinitions = new Dictionary<string, List<Definition>>(StringComparer.OrdinalIgnoreCase);
-            foreach (var definition in definitions)
-            {
-                if (string.IsNullOrWhiteSpace(definition.MimeType))
-                {
-                    _invalidGroupedDefinitions.TryAdd(definition.MimeType, []);
-                    _invalidGroupedDefinitions[definition.MimeType].Add(definition);
-                    continue;
-                }
-
-                groupedDefinitions.TryAdd(definition.MimeType, []);
-                groupedDefinitions[definition.MimeType].Add(definition);
-            }
-            return groupedDefinitions;
+            var groupedDefinitions = definitions.GroupByMimeType();
+            return report ? ValidateAndReportInternal(groupedDefinitions) : ValidateInternal(groupedDefinitions);
         }
 
         /// <summary>
-        /// Removes invalid or duplicate <see cref="Definition"/> entries from the specified dictionary.
+        /// Validates and normalizes MIME type groupings, separating valid and invalid definitions.
         /// </summary>
-        /// <param name="definitions">A dictionary containing lists of <see cref="Definition"/> objects to be cleansed. The dictionary keys
-        /// represent categories or identifiers, and the values are the corresponding lists of definitions to process.</param>
-        /// <param name="report"><see langword="true"/> to generate a report of the cleansing process; otherwise, <see langword="false"/> to
-        /// perform cleansing without reporting. The report may include details about removed or modified entries.</param>
-        /// <returns>A new dictionary containing the cleansed lists of <see cref="Definition"/> objects. The structure and keys
-        /// of the dictionary are preserved, but invalid or duplicate definitions are removed from the lists.</returns>
-        public static Dictionary<string, List<Definition>> Cleanse(this Dictionary<string, List<Definition>> definitions, bool report = false)
+        /// <remarks>This method processes each group of definitions by attempting to clean and validate
+        /// the MIME type key. Definitions with valid, recognized MIME types are grouped under their normalized form,
+        /// and their <c>MimeType</c> property is updated accordingly. Definitions with invalid or unrecognized MIME
+        /// types are grouped separately under their original key.</remarks>
+        /// <param name="definitions">A dictionary mapping MIME type strings to lists of <see cref="Definition"/> objects. Each key represents an
+        /// original MIME type, and each value is the associated list of definitions.</param>
+        /// <returns>A tuple containing two dictionaries: <list type="bullet">   <item>     <description>The first dictionary
+        /// maps cleaned, valid MIME types to lists of <see cref="Definition"/> objects with updated <c>MimeType</c>
+        /// properties.</description>   </item>   <item>     <description>The second dictionary maps invalid or
+        /// unrecognized MIME type strings to their corresponding lists of <see cref="Definition"/>
+        /// objects.</description>   </item> </list></returns>
+        private static (Dictionary<string, List<Definition>>, Dictionary<string, List<Definition>>) ValidateInternal(
+            Dictionary<string, List<Definition>> definitions
+        )
         {
-            return report ? CleanseAndReportInternal(definitions) : CleanseInternal(definitions);
-        }
-
-        public static void CreateMemoryDump(this Dictionary<string, List<Definition>> definitions, string? dumpPath = null)
-        {
-            var validDefCount = 0;
-            var invalidDefCount = 0;
-
-            // Process valid definitions
-            var validMimeTypes = new Dictionary<string,List<string>>(StringComparer.OrdinalIgnoreCase);
-            foreach (var def in definitions)
-            {
-                validMimeTypes[def.Key] = [.. def.Value.Select(d => d.Extension).Distinct(StringComparer.OrdinalIgnoreCase)];
-                validDefCount += def.Value.Count;
-            }
-            var validMemoryDump = new MemoryDump
-            {
-                DefinitionsCount = validDefCount,
-                MimeCount = validMimeTypes.Keys.Count,
-                MimeTypes = validMimeTypes
-            };
-
-            // Process invalid definitions
-            var invalidMimeTypes = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
-            foreach (var def in _invalidGroupedDefinitions)
-            {
-                invalidMimeTypes[def.Key ?? "null"] = [.. def.Value.Select(d => d.Extension).Distinct(StringComparer.OrdinalIgnoreCase)];
-                invalidDefCount += def.Value.Count;
-            }
-            var invalidMemoryDump = new MemoryDump
-            {
-                DefinitionsCount = invalidDefCount,
-                MimeCount = invalidMimeTypes.Keys.Count,
-                MimeTypes = invalidMimeTypes
-            };
-
-            // Export memory dumps
-            ExportMemoryDump(validMemoryDump, "ValidMimeTypes.dump.json", dumpPath);
-            ExportMemoryDump(invalidMemoryDump, "InvalidMimeTypes.dump.json", dumpPath);
-        }
-
-        /// <summary>
-        /// Flattens a dictionary of definitions into a single list of definitions.
-        /// </summary>
-        /// <remarks>This method combines all the lists of definitions from the dictionary values into a
-        /// single list. The order of elements in the resulting list corresponds to the order of the dictionary's values
-        /// and the order of items within each value.</remarks>
-        /// <param name="definitions">A dictionary where the key is an integer and the value is a list of <see cref="Definition"/> objects.</param>
-        /// <returns>A list containing all <see cref="Definition"/> objects from the input dictionary, preserving their original
-        /// order within each list.</returns>
-        public static List<Definition> Flatten(this Dictionary<string, List<Definition>> definitions)
-        {
-            return [.. definitions.SelectMany(kvp => kvp.Value)];
-        }
-
-        /// <summary>
-        /// Cleanses the MIME type keys in the provided dictionary and groups the associated definitions by their
-        /// cleaned MIME types.
-        /// </summary>
-        /// <remarks>This method processes the MIME type keys in a case-insensitive manner. Invalid MIME
-        /// types are excluded from the returned dictionary and handled separately. The <see
-        /// cref="Definition.MimeType"/> property of each definition is updated to reflect the cleaned MIME
-        /// type.</remarks>
-        /// <param name="definitions">A dictionary where the keys represent MIME types and the values are lists of <see cref="Definition"/>
-        /// objects associated with those MIME types.</param>
-        /// <returns>A new dictionary where the keys are the cleaned MIME types and the values are lists of <see
-        /// cref="Definition"/> objects updated with the cleaned MIME types.</returns>
-        private static Dictionary<string, List<Definition>> CleanseInternal(Dictionary<string, List<Definition>> definitions)
-        {
-            var grouped = new Dictionary<string, List<Definition>>(StringComparer.OrdinalIgnoreCase);
+            var validDefsGrouped = new Dictionary<string, List<Definition>>(StringComparer.OrdinalIgnoreCase);
+            var invalidDefsGrouped = new Dictionary<string, List<Definition>>(StringComparer.OrdinalIgnoreCase);
             var cleaner = new MimeTypeCleaner(MimeTypes.Load());
 
             // Process each MIME type group
@@ -131,41 +58,44 @@ namespace Rheo.Storage.DefinitionsBuilder.ETL.Validation
                 if (cleanedMime == null)
                 {
                     // Handle invalid MIME types separately
-                    _invalidGroupedDefinitions.TryAdd(originalMime, []);
-                    _invalidGroupedDefinitions[originalMime].AddRange(definitionList);
+                    invalidDefsGrouped.TryAdd(originalMime, []);
+                    invalidDefsGrouped[originalMime].AddRange(definitionList);
                 }
                 else
                 {
                     // Add the updated definitions with cleaned MIME type to the dictionary 
-                    grouped.TryAdd(cleanedMime, []);
+                    validDefsGrouped.TryAdd(cleanedMime, []);
 
                     // Update each definition with the cleaned MIME type
                     foreach (var definition in definitionList)
                     {
                         definition.MimeType = cleanedMime;
-                        grouped[cleanedMime].Add(definition);
+                        validDefsGrouped[cleanedMime].Add(definition);
                     }
                 }
             }
 
-            return grouped;
+            return (validDefsGrouped, invalidDefsGrouped);
         }
 
         /// <summary>
-        /// Cleanses MIME type keys in the provided dictionary and returns a new dictionary grouped by the cleaned MIME
-        /// types.
+        /// Validates and cleans MIME type definitions, grouping them into valid and invalid categories.
         /// </summary>
-        /// <remarks>This method processes each MIME type in the input dictionary, attempts to cleanse it,
-        /// and updates the <c>MimeType</c> property of each associated <see cref="Definition"/>. Invalid MIME types are
-        /// excluded from the returned dictionary. Progress is reported to the console during execution.</remarks>
-        /// <param name="definitions">A dictionary where each key is a MIME type string and each value is a list of <see cref="Definition"/>
-        /// objects associated with that MIME type.</param>
-        /// <returns>A new dictionary containing the cleaned MIME type strings as keys and lists of <see cref="Definition"/>
-        /// objects with updated <c>MimeType</c> properties as values. Only valid, cleansed MIME types are included in
-        /// the returned dictionary.</returns>
-        private static Dictionary<string, List<Definition>> CleanseAndReportInternal(Dictionary<string, List<Definition>> definitions)
+        /// <remarks>This method processes each group of definitions by MIME type, attempts to clean and
+        /// validate the MIME type, and updates the <see cref="Definition.MimeType"/> property for valid entries.
+        /// Invalid MIME types are grouped separately. Progress is reported to the console during processing.</remarks>
+        /// <param name="definitions">A dictionary mapping original MIME type strings to lists of <see cref="Definition"/> objects to be validated
+        /// and cleaned.</param>
+        /// <returns>A tuple containing two dictionaries: <list type="bullet"> <item> <description> The first dictionary maps
+        /// cleaned, valid MIME type strings to lists of <see cref="Definition"/> objects with updated MIME types.
+        /// </description> </item> <item> <description> The second dictionary maps invalid or unrecognized MIME type
+        /// strings to their corresponding lists of <see cref="Definition"/> objects. </description> </item> </list></returns>
+        private static (Dictionary<string, List<Definition>>, Dictionary<string, List<Definition>>) ValidateAndReportInternal(
+            Dictionary<string, List<Definition>> definitions
+        )
         {
-            var grouped = new Dictionary<string, List<Definition>>(StringComparer.OrdinalIgnoreCase);
+            var validDefsGrouped = new Dictionary<string, List<Definition>>(StringComparer.OrdinalIgnoreCase);
+            var invalidDefsGrouped = new Dictionary<string, List<Definition>>(StringComparer.OrdinalIgnoreCase);
             var cleaner = new MimeTypeCleaner(MimeTypes.Load());
 
             // Calculate total definitions for progress reporting
@@ -198,20 +128,20 @@ namespace Rheo.Storage.DefinitionsBuilder.ETL.Validation
                         if (cleanedMime == null)
                         {
                             // Handle invalid MIME types separately
-                            _invalidGroupedDefinitions.TryAdd(originalMime, []);
-                            _invalidGroupedDefinitions[originalMime].AddRange(definitionList);
+                            invalidDefsGrouped.TryAdd(originalMime, []);
+                            invalidDefsGrouped[originalMime].AddRange(definitionList);
                             invalidDefinitions += groupSize;
                         }
                         else
                         {
                             // Add the updated definitions with cleaned MIME type to the dictionary 
-                            grouped.TryAdd(cleanedMime, []);
+                            validDefsGrouped.TryAdd(cleanedMime, []);
 
                             // Update each definition with the cleaned MIME type
                             foreach (var definition in definitionList)
                             {
                                 definition.MimeType = cleanedMime;
-                                grouped[cleanedMime].Add(definition);
+                                validDefsGrouped[cleanedMime].Add(definition);
                             }
 
                             validDefinitions += groupSize;
@@ -225,41 +155,7 @@ namespace Rheo.Storage.DefinitionsBuilder.ETL.Validation
                     }
                 });
 
-            Console.WriteLine("Mime types have been cleansed.");
-            Console.WriteLine("Result: {0} valid definitions | {1} invalid definitions", validDefinitions, invalidDefinitions);
-
-            return grouped;
+            return (validDefsGrouped, invalidDefsGrouped);
         }
-
-        private static void ExportMemoryDump(MemoryDump memoryDump, string fileName,string? outputPath = null)
-        {
-            try
-            {
-                if (string.IsNullOrWhiteSpace(outputPath))
-                {
-                    outputPath = Path.Combine(Directory.GetCurrentDirectory(), "MemoryDumps");
-                }
-
-                outputPath = Path.GetFullPath(outputPath!);
-                if (!Directory.Exists(outputPath))
-                {
-                    Directory.CreateDirectory(outputPath);
-                }
-
-                var filePath = Path.Combine(outputPath, fileName);
-                var json = JsonSerializer.Serialize(memoryDump, MemoryDumpJsonContext.Default.MemoryDump);
-                File.WriteAllText(filePath, json);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Failed to export memory dump: {ex.Message}");
-            }
-        }
-    }
-
-    [JsonSourceGenerationOptions(WriteIndented = true)]
-    [JsonSerializable(typeof(MemoryDump))]
-    internal partial class MemoryDumpJsonContext : JsonSerializerContext
-    {
     }
 }

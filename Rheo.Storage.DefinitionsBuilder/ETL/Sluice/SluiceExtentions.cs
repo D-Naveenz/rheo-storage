@@ -64,6 +64,7 @@ namespace Rheo.Storage.DefinitionsBuilder.ETL.Sluice
 
                 var level = CommonExtensions.GetLevel(definition.Extension);
                 definition.Level = level;
+                definition.PriorityLevel = Valuation.CalculatePriority(definition);
                 result[level].Add(definition);
             }
 

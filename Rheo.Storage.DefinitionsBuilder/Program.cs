@@ -1,4 +1,5 @@
 ﻿using Rheo.Storage.DefinitionsBuilder;
+using Rheo.Storage.DefinitionsBuilder.ETL.Packaging;
 using Spectre.Console;
 
 // Analyze a file
@@ -17,8 +18,10 @@ var rule = new Rule($"[yellow]v{Configuration.Version}[/]");
 AnsiConsole.Write(rule);
 
 // Build Definitions Package
-Console.WriteLine("Compiling definitions package...");
-var packager = new PackageCompiler();
-packager.Compile();
+var package = PackageBuilder.Build();
+// Export Package
+Exporter.ExportPackage(package, "Output");
+// Save Package Log
+Exporter.SavePackageLogs("Logs", package.Logs);
 
 Console.WriteLine("\nDatabase ready for Rheo Storage library!");

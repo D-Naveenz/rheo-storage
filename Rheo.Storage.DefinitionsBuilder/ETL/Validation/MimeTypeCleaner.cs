@@ -11,7 +11,7 @@
         public string? CleanMimeType(string mimeType)
         {
             if (string.IsNullOrWhiteSpace(mimeType))
-                throw new ArgumentException("MIME type cannot be null or whitespace.", nameof(mimeType));
+                return null;
 
             // Step 1: Basic cleaning
             string cleaned = CleanBasic(mimeType);
