@@ -1,7 +1,7 @@
 ﻿using Rheo.Storage.DefinitionsBuilder.ETL.RIFF;
 using Rheo.Storage.DefinitionsBuilder.ETL.Sluice;
 using Rheo.Storage.DefinitionsBuilder.ETL.Validation;
-using Rheo.Storage.DefinitionsBuilder.Models.Definition;
+using Rheo.Storage.DefinitionsBuilder.Models;
 
 namespace Rheo.Storage.DefinitionsBuilder.ETL.Packaging
 {
@@ -28,6 +28,7 @@ namespace Rheo.Storage.DefinitionsBuilder.ETL.Packaging
             // Transform
             var validatedDefinitions = ValidateMimeTypes(rawDefinitions, packageLogs);
             var filteredDefinitions = FilterDefinitions(validatedDefinitions, packageLogs);
+            filteredDefinitions = [.. filteredDefinitions.OrderByDescending(d => d.PriorityLevel)];
             // Load
             var package = new Package
             {

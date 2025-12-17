@@ -1,4 +1,4 @@
-﻿using Rheo.Storage.DefinitionsBuilder.Models.Definition;
+﻿using Rheo.Storage.DefinitionsBuilder.Models;
 
 namespace Rheo.Storage.DefinitionsBuilder.ETL.Sluice
 {

@@ -1,5 +1,6 @@
 ﻿using MessagePack;
-using Rheo.Storage.DefinitionsBuilder.Models.Definition;
+using Rheo.Storage.DefinitionsBuilder.Models;
+using System.Text.Json.Serialization;
 
 namespace Rheo.Storage.DefinitionsBuilder.ETL.Packaging
 {
@@ -12,12 +13,15 @@ namespace Rheo.Storage.DefinitionsBuilder.ETL.Packaging
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         [Key(2)]
         public PackageTag Tags { get; set; } = PackageTag.None;
+        [JsonIgnore]
         [IgnoreMember]
         public int TotalDefinitions => Definitions.Count;
+        [JsonIgnore]
         [IgnoreMember]
         public int TotalMimeTypes => Definitions.Select(def => def.MimeType).Distinct().Count();
         [Key(3)]
         public List<Definition> Definitions { get; set; } = [];
+        [JsonIgnore]
         [IgnoreMember]
         public List<PackageLog> Logs { get; set; } = [];
     }

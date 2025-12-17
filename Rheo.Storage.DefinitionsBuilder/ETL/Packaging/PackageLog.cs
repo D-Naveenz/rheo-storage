@@ -1,4 +1,4 @@
-﻿using Rheo.Storage.DefinitionsBuilder.Models.Definition;
+﻿using Rheo.Storage.DefinitionsBuilder.Models;
 using System.Diagnostics;
 using System.Text;
 
@@ -7,13 +7,13 @@ namespace Rheo.Storage.DefinitionsBuilder.ETL.Packaging
     [DebuggerDisplay("PackageLog: {LogType}, MimeCount={MimeCount}, Definitions={DefinitionsCount}")]
     public class PackageLog(string logType)
     {
-        private Dictionary<string, List<string>> _defiitionsByMime = [];
+        private Dictionary<string, HashSet<string>> _defiitionsByMime = [];
 
         public DateTime Timestamp { get; } = DateTime.UtcNow;
         public string LogType { get; } = logType;
         public int MimeCount => _defiitionsByMime.Count;
         public int DefinitionsCount => _defiitionsByMime.Values.Sum(list => list.Count);
-        public Dictionary<string, List<string>> DefiitionsByMime => _defiitionsByMime;
+        public Dictionary<string, HashSet<string>> DefiitionsByMime => _defiitionsByMime;
 
         /// <summary>
         /// Sets the collection of definitions grouped by MIME type.
@@ -25,7 +25,7 @@ namespace Rheo.Storage.DefinitionsBuilder.ETL.Packaging
         {
             _defiitionsByMime = definitionsByMime.ToDictionary(
                 kvp => string.IsNullOrWhiteSpace(kvp.Key) ? "Unknown" : kvp.Key,
-                kvp => kvp.Value.Select(d => d.Extension).ToList()
+                kvp => kvp.Value.Select(d => d.Extension).ToHashSet()
             );
         }
 

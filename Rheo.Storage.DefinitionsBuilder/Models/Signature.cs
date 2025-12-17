@@ -1,6 +1,6 @@
 ﻿using MessagePack;
 
-namespace Rheo.Storage.DefinitionsBuilder.Models.Definition
+namespace Rheo.Storage.DefinitionsBuilder.Models
 {
     /// <summary>
     /// Represents a signature that contains collections of patterns and string data in byte array format.

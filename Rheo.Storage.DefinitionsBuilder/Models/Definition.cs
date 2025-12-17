@@ -1,6 +1,7 @@
 ﻿using MessagePack;
+using System.Text.Json.Serialization;
 
-namespace Rheo.Storage.DefinitionsBuilder.Models.Definition
+namespace Rheo.Storage.DefinitionsBuilder.Models
 {
     /// <summary>
     /// Represents a type definition that includes metadata such as file type, extension, MIME type, and additional
@@ -45,6 +46,7 @@ namespace Rheo.Storage.DefinitionsBuilder.Models.Definition
         /// <summary>
         /// Gets or sets the level of the entity.
         /// </summary>
+        [JsonIgnore]
         [IgnoreMember]
         public int Level { get; set; } = 0;
     }
