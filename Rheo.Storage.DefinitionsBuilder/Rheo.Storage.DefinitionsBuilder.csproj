@@ -7,20 +7,21 @@
     <Nullable>enable</Nullable>
     <PublishAot>true</PublishAot>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <AssemblyName>defbuild</AssemblyName>
+    <Authors>Naveen Dharmathunga</Authors>
+    <Product>Definitions Builder</Product>
+    <Copyright>© 2025 Naveen Dharmathunga - All Rights Reserved.</Copyright>
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="Data\trid.py" />
-    <None Remove="Data\triddefs.trd" />
+    <PackageReference Include="MessagePack" Version="3.1.4" />
+    <PackageReference Include="Spectre.Console.Cli" Version="0.53.1" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Content Include="Data\trid.py">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="Data\triddefs.trd">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
-
+    <Target Name="CopyAssets" AfterTargets="PostBuildEvent">
+        <ItemGroup>
+            <MyAssets Include="Assets\**\*.*" />
+        </ItemGroup>
+        <Copy SourceFiles="@(MyAssets)" DestinationFolder="$(OutputPath)\Assets\%(RecursiveDir)" />
+    </Target>
 </Project>
