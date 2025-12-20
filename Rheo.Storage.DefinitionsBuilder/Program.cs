@@ -11,16 +11,18 @@ using Spectre.Console.Cli;
 //}
 
 // Display Banner
-var font = FigletFont.Load(Configuration.FigletFont);
-AnsiConsole.Write(new FigletText(font, "Rheo").Centered().Color(Color.Green));
-AnsiConsole.Write(new Align(new Text(Configuration.ProductName, new Style(Color.Yellow)), HorizontalAlignment.Center));
-var rule = new Rule($"[yellow]v{Configuration.Version}[/]");
-AnsiConsole.Write(rule);
-Console.WriteLine();
+if (args.Length == 0)
+{
+    var font = FigletFont.Load(Configuration.FigletFont);
+    AnsiConsole.Write(new FigletText(font, "Rheo").Centered().Color(Color.Green));
+    AnsiConsole.Write(new Align(new Text(Configuration.ProductName, new Style(Color.Yellow)), HorizontalAlignment.Center));
+    var rule = new Rule($"[yellow]v{Configuration.Version}[/]");
+    AnsiConsole.Write(rule);
+    Console.WriteLine();
+}
 
 // Initialize app container
 var app = new CommandApp();
-
 app.Configure(config =>
 {
     config.SetApplicationName(Configuration.ExeName);
@@ -35,25 +37,27 @@ app.Configure(config =>
     config.PropagateExceptions();
 #endif
 });
-
 app.Run(args);
 
-// Interactive mode
-Console.WriteLine();
-Console.WriteLine("Type 'exit' to quit.");
-while (true)
+if (args.Length == 0)
 {
+    // Interactive mode
     Console.WriteLine();
-    Console.Write("> ");
-    var input = Console.ReadLine();
-    if (string.IsNullOrWhiteSpace(input))
-        continue;
-    else if (input.Equals("exit", StringComparison.OrdinalIgnoreCase))
+    Console.WriteLine("Type 'exit' to quit.");
+    while (true)
     {
-        break;
-    }
-    else
-    {
-        app.Run(input.Split(' '));
+        Console.WriteLine();
+        Console.Write("> ");
+        var input = Console.ReadLine();
+        if (string.IsNullOrWhiteSpace(input))
+            continue;
+        else if (input.Equals("exit", StringComparison.OrdinalIgnoreCase))
+        {
+            break;
+        }
+        else
+        {
+            app.Run(input.Split(' '));
+        }
     }
 }
