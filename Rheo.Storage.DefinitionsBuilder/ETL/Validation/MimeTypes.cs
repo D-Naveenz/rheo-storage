@@ -1,4 +1,5 @@
-﻿using Rheo.Storage.DefinitionsBuilder.Settings;
+﻿using Rheo.Storage.DefinitionsBuilder.Properties;
+using Rheo.Storage.DefinitionsBuilder.Settings;
 
 namespace Rheo.Storage.DefinitionsBuilder.ETL.Validation
 {
@@ -21,6 +22,7 @@ namespace Rheo.Storage.DefinitionsBuilder.ETL.Validation
 
             var csvFiles = Directory.GetFiles(exclusionListsPath, "*.csv", SearchOption.TopDirectoryOnly);
 
+            // Get mime types from each csv file
             List<List<string>> mimeTypeLists = [];
             foreach (var csvFile in csvFiles)
             {
@@ -28,7 +30,23 @@ namespace Rheo.Storage.DefinitionsBuilder.ETL.Validation
                 var mimeTypes = ParseCSV(csvFile).GetDataColumn(1);
                 mimeTypeLists.Add(mimeTypes);
             }
+            // Get mime types from custom list
+            mimeTypeLists.Add(GetCustomTypes());
+
             return MergeColumns([.. mimeTypeLists]);
+        }
+
+        /// <summary>
+        /// Retrieves a list of custom MIME type strings defined in the application's resources.
+        /// </summary>
+        /// <returns>A list of strings, each representing a custom MIME type. The list will be empty if no custom MIME types are
+        /// defined.</returns>
+        private static List<string> GetCustomTypes()
+        {
+            var mimeStr = Resources.CustomMimeTypes;
+            var customList = mimeStr.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries).ToList();
+
+            return customList;
         }
 
         /// <summary>

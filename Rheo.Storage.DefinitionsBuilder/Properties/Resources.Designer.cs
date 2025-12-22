@@ -61,6 +61,35 @@ namespace Rheo.Storage.DefinitionsBuilder.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to application/x-ms-dat
+        ///application/x-iso9660-image
+        ///application/x-virtualbox-ova
+        ///application/matlab-p
+        ///application/x-matlab-data
+        ///application/x-tex-tfm
+        ///application/x-udf-image
+        ///application/x-macbinary
+        ///application/x-msaccess
+        ///application/x-virtualbox-nvram
+        ///application/x-coff
+        ///application/x-font-pfm
+        ///application/x-font-pcf
+        ///application/x-python-bytecode
+        ///application/x-indesign
+        ///application/vnd.adobe.illustrator
+        ///application/x-bibtex
+        ///application/eps
+        ///application/x-tex
+        ///application/x-7z-compressed
+        ///applicat [rest of string was truncated]&quot;;.
+        /// </summary>
+        internal static string CustomMimeTypes {
+            get {
+                return ResourceManager.GetString("CustomMimeTypes", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to flf2a$ 8 8 17 -1 8
         ///basic.flf by Craig O&apos;Flaherty &lt;cofl@it.ntu.edu.au&gt;
         ///August 17, 1994
