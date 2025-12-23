@@ -8,10 +8,12 @@ namespace Rheo.Storage.DefinitionsBuilder.ETL.Packaging
     public class PackageLog(string logType)
     {
         private Dictionary<string, HashSet<string>> _extensionsByMime = [];
+        private int _definitionCount;
 
         public DateTime Timestamp { get; } = DateTime.UtcNow;
         public string LogType { get; } = logType;
         public int MimeCount => _extensionsByMime.Count;
+        public int DefinitionCount => _definitionCount;
         public int ExtensionsCount => _extensionsByMime.Values.Sum(list => list.Count);
         public Dictionary<string, HashSet<string>> ExtensionsByMime => _extensionsByMime;
 
@@ -23,6 +25,7 @@ namespace Rheo.Storage.DefinitionsBuilder.ETL.Packaging
         /// or consists only of whitespace, it is treated as "Unknown".</param>
         public void SetDefinitionsPackage(Dictionary<string, List<Definition>> definitionsByMime)
         {
+            _definitionCount = definitionsByMime.Values.Sum(list => list.Count);
             _extensionsByMime = definitionsByMime.ToDictionary(
                 kvp => string.IsNullOrWhiteSpace(kvp.Key) ? "Unknown" : kvp.Key,
                 kvp => kvp.Value.SelectMany(d => d.Extensions).ToHashSet()
@@ -44,6 +47,7 @@ namespace Rheo.Storage.DefinitionsBuilder.ETL.Packaging
             sb.AppendLine($"Log type: {LogType}");
             sb.AppendLine($"Timestamp: {Timestamp}");
             sb.AppendLine($"Total MIME types: {MimeCount}");
+            sb.AppendLine($"Total definitions: {DefinitionCount}");
             sb.AppendLine($"Total extensions: {ExtensionsCount}");
             sb.AppendLine();
             

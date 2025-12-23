@@ -10,8 +10,8 @@
     <Authors>Naveen Dharmathunga</Authors>
     <Product>Definitions Builder</Product>
     <Copyright>© 2025 Naveen Dharmathunga - All Rights Reserved.</Copyright>
-    <AssemblyVersion>1.1.0.0</AssemblyVersion>
-    <FileVersion>1.1.2.0</FileVersion>
+    <AssemblyVersion>1.2.0.0</AssemblyVersion>
+    <FileVersion>1.2.3.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
