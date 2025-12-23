@@ -20,6 +20,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Rheo.Storage\Rheo.Storage.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Compile Update="Properties\Resources.Designer.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
@@ -34,10 +38,14 @@
     </EmbeddedResource>
   </ItemGroup>
 
-    <Target Name="CopyAssets" AfterTargets="PostBuildEvent">
-        <ItemGroup>
-            <MyAssets Include="Data\**\*.*" />
-        </ItemGroup>
-        <Copy SourceFiles="@(MyAssets)" DestinationFolder="$(OutputPath)\Data\%(RecursiveDir)" />
-    </Target>
+  <Target Name="CopyAssets" AfterTargets="PostBuildEvent">
+      <ItemGroup>
+          <MyAssets Include="Data\**\*.*" />
+      </ItemGroup>
+      <Copy SourceFiles="@(MyAssets)" DestinationFolder="$(OutputPath)\Data\%(RecursiveDir)" />
+  </Target>
+
+  <Target Name="BuildAndPack" AfterTargets="PostBuildEvent" Condition="'$(Configuration)' == 'Release'">
+    <Exec Command="pwsh -File &quot;$(ProjectDir)build-and-pack.ps1&quot; -Configuration $(Configuration) -SkipBuild" />
+  </Target>
 </Project>
