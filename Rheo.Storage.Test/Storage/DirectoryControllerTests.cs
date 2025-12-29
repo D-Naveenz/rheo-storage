@@ -1,5 +1,5 @@
 using Moq;
-using Rheo.Storage.Test.Storage.Models;
+using Rheo.Storage.Test.Models;
 
 namespace Rheo.Storage.Test.Storage
 {

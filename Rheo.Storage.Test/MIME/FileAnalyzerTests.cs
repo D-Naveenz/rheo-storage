@@ -1,0 +1,301 @@
+using Rheo.Storage.MIME;
+using Rheo.Storage.Test.Models;
+
+namespace Rheo.Storage.Test.MIME
+{
+    [Trait(TestTraits.Category, TestTraits.Storage)]
+    [Trait(TestTraits.Feature, "FileAnalyzer")]
+    public class FileAnalyzerTests : IDisposable
+    {
+        private readonly TestDirectory _testDir;
+
+        public FileAnalyzerTests()
+        {
+            _testDir = TestDirectory.Create();
+            
+            // Uncomment to debug
+            // _testDir.OpenInFileBrowser();
+        }
+
+        [Fact]
+        public void AnalyzeFile_WithNonExistentFile_ReturnsEmptyList()
+        {
+            // Arrange
+            var nonExistentPath = Path.Combine(_testDir.FullPath, "nonexistent.bin");
+
+            // Act
+            var results = FileAnalyzer.AnalyzeFile(nonExistentPath);
+
+            // Assert
+            Assert.Empty(results);
+        }
+
+        [Fact]
+        public void AnalyzeFile_WithEmptyFile_ReturnsEmptyList()
+        {
+            // Arrange
+            var emptyFilePath = Path.Combine(_testDir.FullPath, "empty.bin");
+            File.WriteAllBytes(emptyFilePath, []);
+
+            // Act
+            var results = FileAnalyzer.AnalyzeFile(emptyFilePath);
+
+            // Assert
+            Assert.Empty(results);
+        }
+
+        [Fact]
+        public void AnalyzeFile_WithTextFile_ReturnsResults()
+        {
+            // Arrange
+            var testFile = TestFile.Create(ResourceType.Text, _testDir);
+
+            // Act
+            var results = FileAnalyzer.AnalyzeFile(testFile.FullPath);
+
+            // Assert
+            Assert.NotEmpty(results);
+            
+            // Text files should have at least one match
+            var topResult = results.First();
+            Assert.NotNull(topResult.Definition);
+            Assert.True(topResult.Points > 0);
+            Assert.True(topResult.Confidence > 0);
+        }
+
+        [Fact]
+        public void AnalyzeFile_WithPngImage_ReturnsResults()
+        {
+            // Arrange
+            var testFile = TestFile.Create(ResourceType.Image, _testDir);
+
+            // Act
+            var results = FileAnalyzer.AnalyzeFile(testFile.FullPath);
+
+            // Assert
+            Assert.NotEmpty(results);
+            
+            var topResult = results.First();
+            
+            // PNG files have signature: 89 50 4E 47 0D 0A 1A 0A
+            Assert.NotNull(topResult.Definition);
+            Assert.Contains("png", topResult.Definition.Extensions, StringComparer.OrdinalIgnoreCase);
+            Assert.True(topResult.Confidence > 50, "PNG should have high confidence due to strong signature");
+        }
+
+        [Fact]
+        public void AnalyzeFile_WithDocument_ReturnsResults()
+        {
+            // Arrange
+            var testFile = TestFile.Create(ResourceType.Document, _testDir);
+
+            // Act
+            var results = FileAnalyzer.AnalyzeFile(testFile.FullPath);
+
+            // Assert
+            Assert.NotEmpty(results);
+            
+            var topResult = results.First();
+            Assert.NotNull(topResult.Definition);
+            Assert.True(topResult.Points > 0);
+        }
+
+        [Fact]
+        public void AnalyzeFile_WithVideo_ReturnsResults()
+        {
+            // Arrange
+            var testFile = TestFile.Create(ResourceType.Video, _testDir);
+
+            // Act
+            var results = FileAnalyzer.AnalyzeFile(testFile.FullPath);
+
+            // Assert
+            Assert.NotEmpty(results);
+            
+            var topResult = results.First();
+            Assert.NotNull(topResult.Definition);
+            Assert.True(topResult.Points > 0);
+        }
+
+        [Fact]
+        public void AnalyzeFile_ResultsAreOrderedByPoints()
+        {
+            // Arrange
+            var testFile = TestFile.Create(ResourceType.Image, _testDir);
+
+            // Act
+            var results = FileAnalyzer.AnalyzeFile(testFile.FullPath);
+
+            // Assert
+            if (results.Count > 1)
+            {
+                for (int i = 0; i < results.Count - 1; i++)
+                {
+                    Assert.True(results[i].Points >= results[i + 1].Points,
+                        "Results should be ordered by points in descending order");
+                }
+            }
+        }
+
+        [Fact]
+        public void AnalyzeFile_ConfidencesSumTo100Percent()
+        {
+            // Arrange
+            var testFile = TestFile.Create(ResourceType.Image, _testDir);
+
+            // Act
+            var results = FileAnalyzer.AnalyzeFile(testFile.FullPath);
+
+            // Assert
+            if (results.Count > 0)
+            {
+                var totalConfidence = results.Sum(r => r.Confidence);
+                Assert.True(Math.Abs(totalConfidence - 100.0) < 0.01,
+                    $"Total confidence should be ~100%, but was {totalConfidence}%");
+            }
+        }
+
+        [Fact]
+        public void AnalyzeFile_WithCheckStringsFalse_StillReturnsResults()
+        {
+            // Arrange
+            var testFile = TestFile.Create(ResourceType.Image, _testDir);
+
+            // Act
+            var results = FileAnalyzer.AnalyzeFile(testFile.FullPath, checkStrings: false);
+
+            // Assert
+            Assert.NotEmpty(results);
+            
+            // Results might differ from string-enabled analysis, but should still work
+            var topResult = results.First();
+            Assert.NotNull(topResult.Definition);
+            Assert.True(topResult.Points > 0);
+        }
+
+        [Fact]
+        public void AnalyzeFile_WithKnownSignature_DetectsCorrectly()
+        {
+            // Arrange: Create a file with known ZIP signature (PK header)
+            var zipPath = Path.Combine(_testDir.FullPath, "test.zip");
+            byte[] zipSignature = [0x50, 0x4B, 0x03, 0x04]; // ZIP/JAR/DOCX signature
+            File.WriteAllBytes(zipPath, zipSignature);
+
+            // Act
+            var results = FileAnalyzer.AnalyzeFile(zipPath);
+
+            // Assert
+            Assert.NotEmpty(results);
+            
+            var topResult = results.First();
+            Assert.NotNull(topResult.Definition);
+            
+            // Should detect as ZIP-based format
+            Assert.True(
+                topResult.Definition.Extensions.Any(ext => 
+                    ext.Equals("zip", StringComparison.OrdinalIgnoreCase) ||
+                    ext.Equals("jar", StringComparison.OrdinalIgnoreCase) ||
+                    ext.Equals("docx", StringComparison.OrdinalIgnoreCase)),
+                "Should detect ZIP-based format");
+        }
+
+        [Fact]
+        public void AnalyzeFile_WithCustomBinaryPattern_DetectsOrReturnsEmpty()
+        {
+            // Arrange: Create file with custom binary pattern
+            var customPath = Path.Combine(_testDir.FullPath, "custom.bin");
+            byte[] customData = [0x00, 0xFF, 0x7A, 0x3C, 0x5D, 0xA1, 0x42, 0x99];
+            File.WriteAllBytes(customPath, customData);
+
+            // Act
+            var results = FileAnalyzer.AnalyzeFile(customPath);
+
+            // Assert
+            // Custom patterns might not match any known definitions
+            // This test validates that the analyzer handles unknown patterns gracefully
+            Assert.NotNull(results); // Should return empty list, not throw
+        }
+
+        [Theory]
+        [InlineData(ResourceType.Text)]
+        [InlineData(ResourceType.Image)]
+        [InlineData(ResourceType.Binary)]
+        [InlineData(ResourceType.Document)]
+        [InlineData(ResourceType.Video)]
+        public void AnalyzeFile_WithVariousResourceTypes_ReturnsValidResults(ResourceType resourceType)
+        {
+            // Arrange
+            var testFile = TestFile.Create(resourceType, _testDir);
+
+            // Act
+            var results = FileAnalyzer.AnalyzeFile(testFile.FullPath);
+
+            // Assert
+            // All valid files should return some analysis (even if empty for unknown types)
+            Assert.NotNull(results);
+            
+            if (results.Any())
+            {
+                // If results exist, validate their structure
+                foreach (var result in results)
+                {
+                    Assert.NotNull(result.Definition);
+                    Assert.True(result.Points >= 0);
+                    Assert.True(result.Confidence >= 0 && result.Confidence <= 100);
+                }
+            }
+        }
+
+        [Fact]
+        public void AnalyzeFile_TopResultHasHighestConfidence()
+        {
+            // Arrange
+            var testFile = TestFile.Create(ResourceType.Image, _testDir);
+
+            // Act
+            var results = FileAnalyzer.AnalyzeFile(testFile.FullPath);
+
+            // Assert
+            if (results.Count > 1)
+            {
+                var topResult = results.First();
+                foreach (var otherResult in results.Skip(1))
+                {
+                    Assert.True(topResult.Confidence >= otherResult.Confidence,
+                        "Top result should have highest confidence");
+                }
+            }
+        }
+
+        [Fact]
+        public void AnalyzeFile_WithLargeFile_HandlesGracefully()
+        {
+            // Arrange: Create a larger file (simulating real-world scenario)
+            var largePath = Path.Combine(_testDir.FullPath, "large.bin");
+            byte[] largeData = new byte[10 * 1024]; // 10KB
+            
+            // Add PNG signature at the start
+            largeData[0] = 0x89;
+            largeData[1] = 0x50;
+            largeData[2] = 0x4E;
+            largeData[3] = 0x47;
+            
+            File.WriteAllBytes(largePath, largeData);
+
+            // Act
+            var results = FileAnalyzer.AnalyzeFile(largePath);
+
+            // Assert
+            Assert.NotEmpty(results);
+            
+            var topResult = results.First();
+            Assert.Contains("png", topResult.Definition.Extensions, StringComparer.OrdinalIgnoreCase);
+        }
+
+        public void Dispose()
+        {
+            _testDir?.Dispose();
+            GC.SuppressFinalize(this);
+        }
+    }
+}

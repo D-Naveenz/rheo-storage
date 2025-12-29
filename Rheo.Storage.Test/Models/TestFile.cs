@@ -1,7 +1,7 @@
 ﻿using Rheo.Storage.Test.Properties;
 using System.Text;
 
-namespace Rheo.Storage.Test.Storage.Models
+namespace Rheo.Storage.Test.Models
 {
     /// <summary>
     /// Represents a test file that supports various resource types and provides functionality for creating, updating,

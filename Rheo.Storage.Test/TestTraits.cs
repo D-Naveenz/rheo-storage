@@ -7,5 +7,6 @@
         public const string Feature = "Feature";
         public const string DirectoryController = "DirectoryController";
         public const string FileController = "FileController";
+        public const string FileAnalyzer = "FileAnalyzer";
     }
 }

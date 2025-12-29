@@ -48,4 +48,11 @@
     </EmbeddedResource>
   </ItemGroup>
 
+    <Target Name="CopyAssets" AfterTargets="PostBuildEvent">
+        <ItemGroup>
+            <MyAssets Include="TestData\**\*.*" />
+        </ItemGroup>
+        <Copy SourceFiles="@(MyAssets)" DestinationFolder="$(OutputPath)\TestData\%(RecursiveDir)" />
+    </Target>
+
 </Project>
