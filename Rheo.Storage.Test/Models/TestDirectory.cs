@@ -12,20 +12,18 @@ namespace Rheo.Storage.Test.Models
     /// identifier.  <para> The <see cref="TestDirectory"/> class is thread-safe for disposal operations and implements 
     /// <see cref="IDisposable"/> to ensure that the directory and its contents are cleaned up when no longer needed.
     /// </para></remarks>
-    internal class TestDirectory : DirectoryController, ITestStorage, IDisposable
+    internal class TestDirectory : DirectoryController, IDisposable
     {
         private readonly Lock _disposeLock = new();
+
+        public new bool IsTemporary { get; init; }
+        public List<TestFile> TestFiles { get; } = [];
 
         private TestDirectory(string storagePath)
             : base(storagePath)
         {
-            // Initialize with a creation record
-            StorageRecords.Add(new StorageRecord(this, OperationType.Create));
+            IsTemporary = true;
         }
-
-        public List<StorageRecord> StorageRecords { get; } = [];
-
-        public DateTimeOffset LastRecordTime => StorageRecords.Count > 0 ? StorageRecords[^1].Timestamp : DateTimeOffset.MinValue;
 
         /// <summary>
         /// Creates a temporary test directory with a unique name in the system's temporary folder.
@@ -35,20 +33,8 @@ namespace Rheo.Storage.Test.Models
         /// <returns>A <see cref="TestDirectory"/> instance representing the created directory.</returns>
         public static TestDirectory Create()
         {
-            var uniqueId = Guid.NewGuid().ToString();
-            // Combine the prefix, unique ID, and temporary path to create the full path
-            var folderName = $"Rheo_{uniqueId}";
-            var fullPath = Path.Combine(Path.GetTempPath(), folderName);
-
-            // Create the directory at the specified path
-            Directory.CreateDirectory(fullPath);
-
-            return new TestDirectory(fullPath);
-        }
-
-        public void Update(OperationType operation)
-        {
-            StorageRecords.Add(new StorageRecord(this, operation));
+            var tempDir = Directory.CreateTempSubdirectory("Rheo_");
+            return new TestDirectory(tempDir.FullName);
         }
 
         public void Dispose()
@@ -75,6 +61,15 @@ namespace Rheo.Storage.Test.Models
             }
         }
 
+        /// <summary>
+        /// Opens the directory specified by the current object's full path in the system's default file browser.
+        /// </summary>
+        /// <remarks>This method supports Windows, macOS, and Linux platforms. On Linux, the method relies
+        /// on the presence of the 'xdg-open' utility, which may not be available on all distributions. The method does
+        /// not wait for the file browser process to exit.</remarks>
+        /// <exception cref="DirectoryNotFoundException">Thrown if the directory specified by the full path does not exist.</exception>
+        /// <exception cref="PlatformNotSupportedException">Thrown if the operating system is not supported.</exception>
+        /// <exception cref="InvalidOperationException">Thrown if the file browser cannot be started, such as when the required system utility is unavailable.</exception>
         public void OpenInFileBrowser()
         {
             var path = Path.GetFullPath(FullPath);

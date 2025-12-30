@@ -1,5 +1,4 @@
-﻿using Rheo.Storage.Test.Properties;
-using System.Text;
+﻿using System.Diagnostics;
 
 namespace Rheo.Storage.Test.Models
 {
@@ -10,100 +9,63 @@ namespace Rheo.Storage.Test.Models
     /// <remarks>A <see cref="TestFile"/> instance encapsulates a file created for testing purposes, with
     /// support for different resource types such as text, images, binary data, documents, and videos. It maintains a
     /// collection of storage records and provides metadata such as the timestamp of the last record.</remarks>
-    internal class TestFile : FileController, ITestStorage
+    internal class TestFile(string filePath) : FileController(filePath)
     {
-        private TestFile(string fileNameOrPath) : base(fileNameOrPath)
-        {
-        }
-
-        public List<StorageRecord> StorageRecords { get; } = [];
-
-        public DateTimeOffset LastRecordTime => StorageRecords.Count > 0 ? StorageRecords[^1].Timestamp : DateTimeOffset.MinValue;
+        public ResourceType ResourceType { get; init; } = ResourceType.Unknown;
+        public TestDirectory TestDirectory { get; init; } = null!;
+        public new bool IsTemporary => TestDirectory.IsTemporary;
 
         /// <summary>
-        /// Creates a test file of the specified resource type in the given directory.
+        /// Asynchronously writes the specified content to the file represented by this instance.
         /// </summary>
-        /// <remarks>The content of the created file depends on the specified <paramref
-        /// name="resourceType"/>: <list type="bullet"> <item><description><see cref="ResourceType.Text"/>: A sample
-        /// text file.</description></item> <item><description><see cref="ResourceType.Image"/>: A small red dot PNG
-        /// image.</description></item> <item><description><see cref="ResourceType.Binary"/>: A binary file with
-        /// predefined content.</description></item> <item><description><see cref="ResourceType.Document"/>: A document
-        /// file loaded from embedded resources.</description></item> <item><description><see
-        /// cref="ResourceType.Video"/>: A video file loaded from embedded resources.</description></item> </list> The
-        /// method writes the file to the specified directory and returns a <see cref="TestFile"/> object representing
-        /// the created file.</remarks>
-        /// <param name="resourceType">The type of resource to create. Determines the content and file extension of the test file.</param>
-        /// <param name="directoryPath">The directory where the test file will be created. Must be a valid, writable path.</param>
-        /// <returns>A <see cref="TestFile"/> instance representing the created test file.</returns>
-        /// <exception cref="ArgumentOutOfRangeException">Thrown if <paramref name="resourceType"/> is not a valid <see cref="ResourceType"/> value.</exception>
-        public static TestFile Create(ResourceType resourceType, string directoryPath)
+        /// <remarks>If overwrite is set to false and the file already exists, an exception is thrown.
+        /// Progress updates are reported periodically if a progress reporter is provided. The method is asynchronous
+        /// and does not block the calling thread.</remarks>
+        /// <param name="content">The byte array containing the data to write to the file. Cannot be null.</param>
+        /// <param name="overwrite">true to overwrite the file if it already exists; false to throw an exception if the file exists.</param>
+        /// <param name="progress">An optional progress reporter that receives updates about the number of bytes transferred and the transfer
+        /// rate. May be null.</param>
+        /// <param name="cancellationToken">A cancellation token that can be used to cancel the write operation.</param>
+        /// <returns>A task that represents the asynchronous write operation.</returns>
+        public async Task WriteAsync(
+            byte[] content,
+            bool overwrite = false, 
+            IProgress<StorageProgress>? progress = null,
+            CancellationToken cancellationToken = default
+            )
         {
-            byte[] resourceBytes;
-            string fileExtension;
+            ArgumentNullException.ThrowIfNull(content);
 
-            switch (resourceType)
+            using var memoryStream = new MemoryStream(content);
+            using var destStream = new FileStream(
+                FullPath,
+                overwrite ? FileMode.Create : FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None,
+                BufferSize,
+                true);
+
+            long totalBytes = memoryStream.Length;
+            long totalBytesRead = 0;
+            Stopwatch stopwatch = Stopwatch.StartNew();
+
+            byte[] buffer = new byte[BufferSize];
+            int bytesRead;
+            while ((bytesRead = await memoryStream.ReadAsync(buffer, cancellationToken)) > 0)
             {
-                case ResourceType.Text:
-                    resourceBytes = Encoding.UTF8.GetBytes("This is a sample text file for testing purposes.");
-                    fileExtension = ".txt";
-                    break;
-                case ResourceType.Image:
-                    // A small red dot PNG image in byte array form
-                    resourceBytes = Convert.FromBase64String(
-                        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/wcAAwAB/6XK" +
-                        "pAAAAABJRU5ErkJggg==");
-                    fileExtension = ".png";
-                    break;
-                case ResourceType.Binary:
-                    resourceBytes = [0x00, 0xFF, 0x7A, 0x3C, 0x5D, 0xA1];
-                    fileExtension = ".bin";
-                    break;
-                case ResourceType.Document:
-                    resourceBytes = Resources.TestData_Document;
-                    fileExtension = Resources.TestData_Document_Extension;
-                    break;
-                case ResourceType.Video:
-                    resourceBytes = Resources.TestData_Video;
-                    fileExtension = Resources.TestData_Video_Extension;
-                    break;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(resourceType), resourceType, null);
+                await destStream.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken);
+                totalBytesRead += bytesRead;
+                if (progress != null)
+                {
+                    double bytesPerSecond = totalBytesRead / stopwatch.Elapsed.TotalSeconds;
+                    progress.Report(new StorageProgress
+                    {
+                        TotalBytes = totalBytes,
+                        BytesTransferred = totalBytesRead,
+                        BytesPerSecond = bytesPerSecond
+                    });
+                }
             }
-
-            var fileName = $"Test{resourceType}{fileExtension}";
-            var fullPath = Path.Combine(directoryPath, fileName);
-
-            // Write the resource bytes to the file
-            File.WriteAllBytes(fullPath, resourceBytes);
-
-            // Create and return the TestFile instance
-            return new TestFile(fullPath);
-        }
-
-        /// <summary>
-        /// Creates a test file of the specified resource type in the given directory.
-        /// </summary>
-        /// <remarks>The content of the created file depends on the specified <paramref
-        /// name="resourceType"/>: <list type="bullet"> <item><description><see cref="ResourceType.Text"/>: A sample
-        /// text file.</description></item> <item><description><see cref="ResourceType.Image"/>: A small red dot PNG
-        /// image.</description></item> <item><description><see cref="ResourceType.Binary"/>: A binary file with
-        /// predefined content.</description></item> <item><description><see cref="ResourceType.Document"/>: A document
-        /// file loaded from embedded resources.</description></item> <item><description><see
-        /// cref="ResourceType.Video"/>: A video file loaded from embedded resources.</description></item> </list> The
-        /// method writes the file to the specified directory and returns a <see cref="TestFile"/> object representing
-        /// the created file.</remarks>
-        /// <param name="resourceType">The type of resource to create. Determines the content and file extension of the test file.</param>
-        /// <param name="directory">The directory where the file will be created. Must not be null.</param>
-        /// <returns>A <see cref="TestFile"/> instance representing the created test file.</returns>
-        /// <exception cref="ArgumentOutOfRangeException">Thrown if <paramref name="resourceType"/> is not a valid <see cref="ResourceType"/> value.</exception>
-        public static TestFile Create(ResourceType resourceType, TestDirectory directory)
-        {
-            return Create(resourceType, directory.FullPath);
-        }
-
-        public void Update(OperationType operation)
-        {
-            StorageRecords.Add(new StorageRecord(this, operation));
         }
     }
 }
