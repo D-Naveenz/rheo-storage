@@ -12,7 +12,7 @@ namespace Rheo.Storage.Test.Models
     /// identifier.  <para> The <see cref="TestDirectory"/> class is thread-safe for disposal operations and implements 
     /// <see cref="IDisposable"/> to ensure that the directory and its contents are cleaned up when no longer needed.
     /// </para></remarks>
-    internal class TestDirectory : DirectoryController, IDisposable
+    public class TestDirectory : DirectoryController, IDisposable
     {
         private readonly Lock _disposeLock = new();
 
@@ -72,7 +72,7 @@ namespace Rheo.Storage.Test.Models
         /// <exception cref="InvalidOperationException">Thrown if the file browser cannot be started, such as when the required system utility is unavailable.</exception>
         public void OpenInFileBrowser()
         {
-            var path = Path.GetFullPath(FullPath);
+            var path = FullPath;
 
             if (!Directory.Exists(path))
                 throw new DirectoryNotFoundException($"The directory '{path}' does not exist.");

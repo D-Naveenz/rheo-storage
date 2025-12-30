@@ -32,7 +32,7 @@ namespace Rheo.Storage.MIME
                 return [];
 
             // Read file header
-            byte[] headerBuffer = ReadFileHeader(filePath, SCAN_WINDOW_SIZE);
+            byte[] headerBuffer = ReadFileHeader(fileInfo, SCAN_WINDOW_SIZE);
             
             // Get candidate definitions
             var candidateDefinitions = GetCandidateDefinitions(headerBuffer);
@@ -66,25 +66,43 @@ namespace Rheo.Storage.MIME
             return [.. results.OrderByDescending(r => r.Points)];
         }
 
-        private static byte[] ReadFileHeader(string filePath, int maxSize)
+        private static byte[] ReadFileHeader(FileInfo fileInfo, int maxSize)
         {
-            using var fileStream = File.OpenRead(filePath);
-            int size = (int)Math.Min(fileStream.Length, maxSize);
+            if (fileInfo.Length == 0)
+                return [];
+
+            // Create buffer and read file header
+            var fileLength = fileInfo.Length;
+            int size = (int)Math.Min(fileLength, maxSize);
             byte[] buffer = new byte[size];
+
+            using var fileStream = fileInfo.OpenRead();
             fileStream.ReadExactly(buffer, 0, size);
-            return buffer;
+            
+            // Trim trailing null bytes to avoid false pattern matches
+            return TrimTrailingNullBytes(buffer);
         }
 
-        /// <summary>
-        /// Identifies and returns all definitions whose signature patterns match the provided file header buffer.
-        /// </summary>
-        /// <remarks>This method scans the header buffer for known pattern matches and validates each
-        /// candidate definition by checking all required patterns. Only definitions with all patterns matching the
-        /// buffer are included in the result. The method does not modify the input buffer.</remarks>
-        /// <param name="headerBuffer">A byte array containing the file header data to be scanned for matching signature patterns. Only the first
-        /// 512 bytes are considered.</param>
-        /// <returns>A set of definitions that match all required signature patterns within the specified header buffer. The set
-        /// will be empty if no definitions match.</returns>
+        private static byte[] TrimTrailingNullBytes(byte[] buffer)
+        {
+            int lastNonNullIndex = buffer.Length - 1;
+            
+            while (lastNonNullIndex >= 0 && buffer[lastNonNullIndex] == 0)
+            {
+                lastNonNullIndex--;
+            }
+            
+            if (lastNonNullIndex < 0)
+                return [];
+            
+            if (lastNonNullIndex == buffer.Length - 1)
+                return buffer;
+            
+            byte[] trimmed = new byte[lastNonNullIndex + 1];
+            Array.Copy(buffer, trimmed, lastNonNullIndex + 1);
+            return trimmed;
+        }
+
         private static HashSet<Definition> GetCandidateDefinitions(byte[] headerBuffer)
         {
             var candidates = new HashSet<Definition>();
@@ -97,8 +115,7 @@ namespace Rheo.Storage.MIME
             }
 
             // Scan for pattern matches and collect unique definitions
-            int scanLimit = Math.Min(headerBuffer.Length, 512);
-            for (int pos = 0; pos < scanLimit; pos++)
+            for (int pos = 0; pos < headerBuffer.Length; pos++)
             {
                 byte currentByte = headerBuffer[pos];
                 
@@ -138,16 +155,6 @@ namespace Rheo.Storage.MIME
             return candidates;
         }
 
-        /// <summary>
-        /// Determines whether a specified byte pattern matches the contents of a buffer at a given offset.
-        /// </summary>
-        /// <remarks>If the pattern extends beyond the end of the buffer when starting at the specified
-        /// offset, the method returns false. This method does not modify the buffer or pattern arrays.</remarks>
-        /// <param name="buffer">The byte array to search for the pattern within. Must not be null.</param>
-        /// <param name="offset">The zero-based index in the buffer at which to begin matching the pattern. Must be non-negative and less
-        /// than or equal to buffer.Length - pattern.Length.</param>
-        /// <param name="pattern">The byte array representing the pattern to match. Must not be null.</param>
-        /// <returns>true if the pattern matches the buffer at the specified offset; otherwise, false.</returns>
         private static bool MatchesPattern(byte[] buffer, int offset, byte[] pattern)
         {
             if (offset + pattern.Length > buffer.Length)
@@ -193,11 +200,6 @@ namespace Rheo.Storage.MIME
                     if (ContainsSequence(fileBuffer, stringBytes))
                     {
                         points += stringBytes.Length * 500;
-                    }
-                    else
-                    {
-                        // String not found - invalidate this definition
-                        return 0;
                     }
                 }
             }
