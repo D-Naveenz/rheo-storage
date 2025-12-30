@@ -24,9 +24,9 @@ namespace Rheo.Storage.Test.IOOperations
             Directory.CreateDirectory(_subDirPath);
 
             // Create test files to add some content
-            await _testDir.CreateTestFileAsync(ResourceType.Text);
-            await _testDir.CreateTestFileAsync(ResourceType.Video);
-            await _testDir.CreateTestFileAsync(ResourceType.Binary);
+            await _testDir.CreateTestFileAsync(ResourceType.Text, TestContext.Current.CancellationToken);
+            await _testDir.CreateTestFileAsync(ResourceType.Video, TestContext.Current.CancellationToken);
+            await _testDir.CreateTestFileAsync(ResourceType.Binary, TestContext.Current.CancellationToken);
 
 #if DEBUG
             // Open the folder in file explorer for debugging

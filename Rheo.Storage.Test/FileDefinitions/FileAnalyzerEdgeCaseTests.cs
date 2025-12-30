@@ -1,5 +1,6 @@
 using Rheo.Storage.MIME;
 using Rheo.Storage.Test.Models;
+using Rheo.Storage.Test.Utilities;
 
 namespace Rheo.Storage.Test.FileDefinitions
 {
@@ -32,10 +33,13 @@ namespace Rheo.Storage.Test.FileDefinitions
         }
 
         [Fact]
-        public void AnalyzeFile_WithMultipleMatchingDefinitions_RanksCorrectly()
+        public async Task AnalyzeFile_WithMultipleMatchingDefinitions_RanksCorrectlyAsync()
         {
             // Arrange: Create file that might match multiple definitions
-            var testFile = TestFile.Create(ResourceType.Document, _testDir);
+            var testFile = await _testDir.CreateTestFileAsync(
+                ResourceType.Document,
+                cancellationToken: TestContext.Current.CancellationToken
+                );
 
             // Act
             var results = FileAnalyzer.AnalyzeFile(testFile.FullPath);

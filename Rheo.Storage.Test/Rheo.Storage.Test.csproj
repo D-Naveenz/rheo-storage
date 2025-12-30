@@ -37,7 +37,7 @@
         <ItemGroup>
             <MyAssets Include="TestFiles\**\*.*" />
         </ItemGroup>
-        <Copy SourceFiles="@(MyAssets)" DestinationFolder="$(OutputPath)\TestData\%(RecursiveDir)" />
+        <Copy SourceFiles="@(MyAssets)" DestinationFolder="$(OutputPath)\TestFiles\%(RecursiveDir)" />
     </Target>
 
 </Project>

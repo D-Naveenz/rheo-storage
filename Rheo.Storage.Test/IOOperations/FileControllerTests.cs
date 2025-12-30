@@ -1,26 +1,33 @@
 using Moq;
 using Rheo.Storage.Test.Models;
+using Rheo.Storage.Test.Utilities;
 
 namespace Rheo.Storage.Test.IOOperations
 {
     [Trait(TestTraits.Category, TestTraits.Storage)]
     [Trait(TestTraits.Feature, TestTraits.FileController)]
-    public class FileControllerTests : IDisposable
+    public class FileControllerTests : IAsyncLifetime
     {
-        private readonly TestDirectory _testDir;
-        private readonly TestFile _testFile;
-        private readonly string _testFilePath;
+        private TestDirectory _testDir = null!;
+        private TestFile _testFile = null!;
+        private string _testFilePath = null!;
         private TestDirectory? _destDir;
 
-        public FileControllerTests()
+        public async ValueTask InitializeAsync()
         {
             // Create test storages
             _testDir = TestDirectory.Create();
-            _testFile = TestFile.Create(ResourceType.Text, _testDir);
+            _testFile = await _testDir.CreateTestFileAsync(ResourceType.Text, TestContext.Current.CancellationToken);
             _testFilePath = _testFile.FullPath;
+        }
 
-            // Open the folder in file explorer for debugging
-            // _testDir.OpenInFileBrowser();
+        public ValueTask DisposeAsync()
+        {
+            // Cleanup test storages
+            _destDir?.Dispose();
+            _testDir?.Dispose();
+            GC.SuppressFinalize(this);
+            return ValueTask.CompletedTask;
         }
 
         [Fact]
@@ -64,7 +71,7 @@ namespace Rheo.Storage.Test.IOOperations
             if (File.Exists(destFilePath))
                 File.Delete(destFilePath);
 
-            await controller.CopyAsync(destDirPath, overwrite: true);
+            await controller.CopyAsync(destDirPath, overwrite: true, cancellationToken: TestContext.Current.CancellationToken);
 
             Assert.True(File.Exists(destFilePath));
         }
@@ -88,7 +95,7 @@ namespace Rheo.Storage.Test.IOOperations
             if (File.Exists(destFilePath))
                 File.Delete(destFilePath);
 
-            await controller.MoveAsync(destDirPath, overwrite: true);
+            await controller.MoveAsync(destDirPath, overwrite: true, cancellationToken: TestContext.Current.CancellationToken);
 
             Assert.True(File.Exists(destFilePath));
             Assert.False(File.Exists(_testFilePath));
@@ -137,14 +144,6 @@ namespace Rheo.Storage.Test.IOOperations
             // Assert
             mockProgress.Verify(p => p.Report(It.IsAny<StorageProgress>()), Times.AtLeastOnce());
             Assert.NotNull(reportedProgress);
-        }
-
-        public void Dispose()
-        {
-            // Cleanup test storages
-            _destDir?.Dispose();
-            _testDir?.Dispose();
-            GC.SuppressFinalize(this);
         }
     }
 }
