@@ -1,14 +1,16 @@
 ﻿using Rheo.Storage.DefinitionsBuilder.ETL.RIFF;
 using Rheo.Storage.DefinitionsBuilder.ETL.Sluice;
 using Rheo.Storage.DefinitionsBuilder.ETL.Validation;
-using Rheo.Storage.DefinitionsBuilder.Models;
 using Rheo.Storage.DefinitionsBuilder.Settings;
+using Rheo.Storage.FileDefinition.Models;
 
 namespace Rheo.Storage.DefinitionsBuilder.ETL.Packaging
 {
     internal class PackageBuilder
     {
         public const string PACKAGE_NAME = "triddefs.trd";
+
+        public List<PackageLog> Logs { get; set; } = [];
 
         /// <summary>
         /// Builds a new <see cref="Package"/> instance by extracting, validating, and filtering definitions.
@@ -18,7 +20,7 @@ namespace Rheo.Storage.DefinitionsBuilder.ETL.Packaging
         /// cref="PackageTag.Validated"/>.  A log of the valid definitions is attached to the package for auditing or
         /// diagnostic purposes.</remarks>
         /// <returns>A <see cref="Package"/> containing the validated and filtered definitions, along with associated logs.</returns>
-        public static Package Build()
+        public Package Build()
         {
             List<PackageLog> packageLogs = [];
 
@@ -41,7 +43,7 @@ namespace Rheo.Storage.DefinitionsBuilder.ETL.Packaging
             var validLog = new PackageLog("ValidDefinitions");
             validLog.SetDefinitionsPackage(filteredDefinitions);
             packageLogs.Add(validLog);
-            package.Logs = packageLogs;
+            Logs = packageLogs;
 
             Console.WriteLine("Package building process completed.");
             Console.WriteLine("Final Package: {0} definitions | {1} MIME types", package.TotalDefinitions, package.TotalMimeTypes);

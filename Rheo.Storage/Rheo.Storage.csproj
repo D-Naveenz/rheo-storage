@@ -12,9 +12,11 @@
     <Copyright>Copyright (c) 2025 Naveen Dharmathunga, All rights reserved.</Copyright>
     <Description>Rheo.Storage is a modern, high-performance library for managing files and directories with rich metadata, asynchronous operations, and progress reporting.</Description>
     <Version>0.1.2-beta.1</Version>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="MessagePack" Version="3.1.4" />
     <PackageReference Include="Mime-Detective" Version="25.8.1" />
     <PackageReference Include="Mime-Detective.Definitions.Condensed" Version="25.8.1" />
   </ItemGroup>
@@ -24,6 +26,25 @@
       <Pack>True</Pack>
       <PackagePath>\</PackagePath>
     </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Assets\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="Properties\Resources.Designer.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Resources.resx</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Update="Properties\Resources.resx">
+      <Generator>ResXFileCodeGenerator</Generator>
+      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
+    </EmbeddedResource>
   </ItemGroup>
 
 </Project>

@@ -1,4 +1,4 @@
-﻿namespace Rheo.Test
+﻿namespace Rheo.Storage.Test
 {
     internal static class TestTraits
     {
@@ -7,5 +7,6 @@
         public const string Feature = "Feature";
         public const string DirectoryController = "DirectoryController";
         public const string FileController = "FileController";
+        public const string FileAnalyzer = "FileAnalyzer";
     }
 }
