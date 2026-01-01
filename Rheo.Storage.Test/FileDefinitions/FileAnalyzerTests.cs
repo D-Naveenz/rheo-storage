@@ -4,8 +4,8 @@ using Rheo.Storage.Test.Utilities;
 
 namespace Rheo.Storage.Test.FileDefinitions
 {
-    [Trait(TestTraits.Category, TestTraits.Storage)]
     [Trait(TestTraits.Feature, "FileAnalyzer")]
+    [Trait(TestTraits.Category, "Default Tests")]
     public class FileAnalyzerTests(TestDirectoryFixture fileAnalyzerFixture) : IClassFixture<TestDirectoryFixture>
     {
         private readonly TestDirectoryFixture _fileAnalyzerFixture = fileAnalyzerFixture;

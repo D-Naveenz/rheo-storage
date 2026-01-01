@@ -57,6 +57,24 @@ namespace Rheo.Storage.MIME
                 }
             }
 
+            // Handle case where no candidates matched but header is non-empty
+            if (headerBuffer.Length > 0 && results.Count == 0)
+            {
+                int points = 100;
+
+                // Use content type detector to determine if the file is text or binary
+                var fallbackDefinition = ContentTypeDetector.CreateFallbackDefinition(headerBuffer, filePath);
+                
+                results.Add(new AnalysisResult
+                {
+                    Definition = fallbackDefinition,
+                    Points = points, // Low score for fallback detection
+                    Confidence = 100 // 100% of available points (since it's the only result)
+                });
+
+                totalPoints += points;
+            }
+
             // Calculate confidence percentages
             foreach (var result in results)
             {
