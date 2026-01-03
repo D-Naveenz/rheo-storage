@@ -14,9 +14,9 @@ namespace Rheo.Storage
     /// binary and non-binary files and includes mechanisms to retrieve file-specific information  through the <see
     /// cref="Information"/> property. It also ensures thread-safe operations and supports progress reporting for
     /// long-running tasks. </para></remarks>
-    public class FileController : StorageController, IStorageInfoContainer<FileInfomation>
+    public class FileController : StorageController, IStorageInfoContainer<FileInformation>
     {
-        private readonly FileInfomation? _storageInfo;
+        private readonly FileInformation? _storageInfo;
 
         public FileController(string fileNameOrPath, bool isInfoRequired = true) : base(fileNameOrPath, AssertAs.File)
         {
@@ -25,18 +25,18 @@ namespace Rheo.Storage
             {
                 if (isInfoRequired)
                 {
-                    _storageInfo = Activator.CreateInstance(typeof(FileInfomation), FullPath) as FileInfomation;
+                    _storageInfo = Activator.CreateInstance(typeof(FileInformation), FullPath) as FileInformation;
                 }
             }
             catch (Exception ex)
             {
-                throw new InvalidOperationException($"Could not create an instance of type {typeof(FileInfomation).FullName}.", ex);
+                throw new InvalidOperationException($"Could not create an instance of type {typeof(FileInformation).FullName}.", ex);
             }
         }
 
         public override DateTime CreatedAt => File.GetCreationTime(FullPath);
 
-        /// <inheritdoc cref="FileInfomation.Extension"/>
+        /// <inheritdoc cref="FileInformation.Extension"/>
         public string? Extension => Information.Extension;
 
         public override bool IsAvailable => File.Exists(FullPath);
@@ -46,7 +46,7 @@ namespace Rheo.Storage
         /// </summary>
         public bool? IsBinary => Information.IsBinaryFile();
 
-        public FileInfomation Information => _storageInfo ?? throw new InvalidOperationException("Storage information is not available.");
+        public FileInformation Information => _storageInfo ?? throw new InvalidOperationException("Storage information is not available.");
 
         public string ContentType => Information.MimeType;
 

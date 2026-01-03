@@ -3,7 +3,7 @@
     /// <summary>
     /// Represents the structure containing information about a file or directory in storage.
     /// </summary>
-    internal interface IStorageInfoStruct
+    public interface IStorageInfoStruct
     {
         /// <summary>
         /// Specifies the file or directory attributes as a set of flags.

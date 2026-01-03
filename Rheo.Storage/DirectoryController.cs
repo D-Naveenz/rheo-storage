@@ -14,9 +14,9 @@ namespace Rheo.Storage
     /// proper handling of exceptions and provides additional context for error scenarios. </para> <para> Use this class
     /// when working with directories in a structured and programmatic way, especially when additional metadata or
     /// advanced operations are required. </para></remarks>
-    public class DirectoryController : StorageController, IStorageInfoContainer<DirectoryInfomation>
+    public class DirectoryController : StorageController, IStorageInfoContainer<DirectoryInformation>
     {
-        private readonly DirectoryInfomation? _storageInfo;
+        private readonly DirectoryInformation? _storageInfo;
 
         public DirectoryController(string fileNameOrPath, bool isInfoRequired = true) : base(fileNameOrPath, AssertAs.Directory)
         {
@@ -25,12 +25,12 @@ namespace Rheo.Storage
             {
                 if (isInfoRequired)
                 {
-                    _storageInfo = Activator.CreateInstance(typeof(DirectoryInfomation), FullPath) as DirectoryInfomation;
+                    _storageInfo = Activator.CreateInstance(typeof(DirectoryInformation), FullPath) as DirectoryInformation;
                 }
             }
             catch (Exception ex)
             {
-                throw new InvalidOperationException($"Could not create an instance of type {typeof(DirectoryInfomation).FullName}.", ex);
+                throw new InvalidOperationException($"Could not create an instance of type {typeof(DirectoryInformation).FullName}.", ex);
             }
         }
 
@@ -38,13 +38,13 @@ namespace Rheo.Storage
 
         public override bool IsAvailable => Directory.Exists(FullPath);
 
-        /// <inheritdoc cref="DirectoryInfomation.NoOfFiles"/>/>
+        /// <inheritdoc cref="DirectoryInformation.NoOfFiles"/>/>
         public int NoOfFiles => Information.NoOfFiles;
 
-        /// <inheritdoc cref="DirectoryInfomation.NoOfDirectories"/>/>
+        /// <inheritdoc cref="DirectoryInformation.NoOfDirectories"/>/>
         public int NoOfDirectories => Information.NoOfDirectories;
 
-        public DirectoryInfomation Information => _storageInfo ?? throw new InvalidOperationException("Storage information is not available.");
+        public DirectoryInformation Information => _storageInfo ?? throw new InvalidOperationException("Storage information is not available.");
 
         public string ContentType => Information.MimeType;
 

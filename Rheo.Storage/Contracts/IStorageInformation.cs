@@ -111,5 +111,19 @@
         /// </summary>
         uint? Mode { get; }
         #endregion
+
+        /// <summary>
+        /// Returns a string representation of the size, optionally formatted using the specified unit of measurement
+        /// (UOM).
+        /// </summary>
+        /// <remarks>When the <paramref name="uom"/> parameter is provided, the size is formatted using
+        /// the specified unit of measurement. If <paramref name="uom"/> is <see langword="null"/>, the method
+        /// determines the most appropriate unit (bytes, kilobytes, megabytes, or gigabytes) based on the size in
+        /// bytes.</remarks>
+        /// <param name="uom">The unit of measurement to use for formatting the size. If <see langword="null"/>, the method automatically
+        /// selects an appropriate unit based on the size in bytes.</param>
+        /// <returns>A string representing the size, including the unit of measurement. If the size is unknown, the string
+        /// "Unknown size" is returned.</returns>
+        string GetSizeString(UOM? uom = null);
     }
 }
