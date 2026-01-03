@@ -1,4 +1,6 @@
-﻿namespace Rheo.Storage.Info
+﻿using Rheo.Storage.Contracts;
+
+namespace Rheo.Storage.Info
 {
     /// <summary>
     /// Represents detailed information about a file or directory on a Windows file system.
@@ -6,71 +8,61 @@
     /// <remarks>This structure provides comprehensive file metadata obtained directly from Windows
     /// APIs, including attributes, size, timestamps, security information, and Shell-provided display information.
     /// Icon handles returned in this structure must be destroyed using DestroyIcon when no longer needed.</remarks>
-    public struct WindowsStorageInfo
+    public struct WindowsStorageInfo : IStorageInfoStruct
     {
-        /// <summary>
-        /// Specifies the file or directory attributes as a set of flags.
-        /// </summary>
-        public FileAttributes Attributes;
+        /// <inheritdoc/>
+        public FileAttributes Attributes { get; set; }
 
-        /// <summary>
-        /// The size of the file in bytes.
-        /// </summary>
-        public ulong Size;
+        /// <inheritdoc/>
+        public ulong Size { get; set; }
 
-        /// <summary>
-        /// The creation time of the file or directory in UTC.
-        /// </summary>
-        public DateTime CreationTime;
+        /// <inheritdoc/>
+        public DateTime CreationTime { get; set; }
 
-        /// <summary>
-        /// The last write (modification) time of the file or directory in UTC.
-        /// </summary>
-        public DateTime LastWriteTime;
+        /// <inheritdoc/>
+        public DateTime LastWriteTime { get; set; }
 
-        /// <summary>
-        /// The last access time of the file or directory in UTC.
-        /// </summary>
-        public DateTime LastAccessTime;
+        /// <inheritdoc/>
+        public DateTime LastAccessTime { get; set; }
 
         /// <summary>
         /// The display name for the file as provided by Windows Shell.
         /// </summary>
-        public string DisplayName;
+        public string DisplayName { get; set; }
 
         /// <summary>
         /// The type name (e.g., "Text Document") as provided by Windows Shell.
         /// </summary>
-        public string TypeName;
+        public string TypeName { get; set; }
 
         /// <summary>
         /// Handle to the icon representing this file. Must be destroyed with DestroyIcon when done.
         /// </summary>
-        public nint IconHandle;
+        public nint IconHandle { get; set; }
 
         /// <summary>
         /// The security identifier (SID) of the file owner.
         /// </summary>
-        public string? OwnerSid;
+        public string? OwnerSid { get; set; }
 
         /// <summary>
         /// The number of hard links to the file.
         /// </summary>
-        public uint HardLinkCount;
+        public uint HardLinkCount { get; set; }
 
         /// <summary>
         /// The volume serial number of the volume containing the file.
         /// </summary>
-        public uint VolumeSerialNumber;
+        public uint VolumeSerialNumber { get; set; }
 
         /// <summary>
         /// The file index (unique identifier on the volume).
         /// </summary>
-        public ulong FileIndex;
+        public ulong FileIndex { get; set; }
 
         /// <summary>
         /// The target path if the file is a reparse point (symbolic link, junction, etc.); otherwise, null.
         /// </summary>
-        public string? ReparseTarget;
+        public string? ReparseTarget { get; set; }
     }
 }

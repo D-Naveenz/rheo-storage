@@ -11,11 +11,6 @@
         /// </summary>
         string DisplayName { get; }
 
-        /// <summary>
-        /// The user-friendly description of the type. This is typically a description of the storage type (e.g., "Text Document").
-        /// </summary>
-        string TypeName { get; }
-
         #endregion
 
         #region Attributes (FileAttributes enum)

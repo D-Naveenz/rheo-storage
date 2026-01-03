@@ -14,7 +14,7 @@ namespace Rheo.Storage.Info
     /// system calls), abstracting platform differences for cross-platform file inspection. Methods may throw exceptions
     /// if the specified file or directory does not exist or if native API calls fail. Callers are responsible for
     /// managing any native resources, such as icon handles, returned by certain Windows methods.</remarks>
-    public static class InfomationProvider
+    public static class InformationProvider
     {
         #region Windows Implementation
         /// <summary>
