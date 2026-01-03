@@ -1,15 +1,16 @@
-﻿using System.Security;
+﻿using Rheo.Storage.Contracts;
+using System.Security;
 
 namespace Rheo.Storage.Info
 {
-    public class DirectoryInfomation : StorageInfomation
+    public class DirectoryInfomation : IStorageInformation
     {
         private const string CONTENT_TYPE = "inode/directory";
 
         private readonly string _directoryPath;
         private readonly DirectoryInfo _systemDirInfo;
 
-        public DirectoryInfomation(string fullPath) : base(fullPath)
+        public DirectoryInfomation(string fullPath)
         {
             if (!Directory.Exists(fullPath))
             {

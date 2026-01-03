@@ -1,11 +1,12 @@
 ﻿using MimeDetective;
 using MimeDetective.Engine;
+using Rheo.Storage.Contracts;
 using System.Collections.Immutable;
 using System.Diagnostics;
 
 namespace Rheo.Storage.Info
 {
-    public class FileInfomation : StorageInfomation
+    public class FileInfomation : IStorageInformation
     {
         private static readonly IContentInspector _inspector;
 
@@ -23,7 +24,7 @@ namespace Rheo.Storage.Info
             }.Build();
         }
 
-        public FileInfomation(string fullPath) : base(fullPath)
+        public FileInfomation(string fullPath)
         {
             if (!File.Exists(fullPath))
             {
