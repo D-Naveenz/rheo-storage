@@ -1,6 +1,6 @@
 ﻿using Rheo.Storage.Contracts;
 
-namespace Rheo.Storage.Info
+namespace Rheo.Storage.Information
 {
     /// <summary>
     /// Provides an abstract base for accessing and representing platform-specific information about a file or storage
@@ -274,5 +274,32 @@ namespace Rheo.Storage.Info
                 throw new PlatformNotSupportedException("The current operating system is not supported for symbolic link retrieval.");
             }
         }
+    }
+
+    /// <summary>
+    /// Represents units of measurement for data storage sizes.
+    /// </summary>
+    public enum UOM
+    {
+        /// <summary>
+        /// Bytes unit of measurement.
+        /// </summary>
+        Bytes,
+        /// <summary>
+        /// Kilobytes unit of measurement.
+        /// </summary>
+        KB,
+        /// <summary>
+        /// Megabytes unit of measurement.
+        /// </summary>
+        MB,
+        /// <summary>
+        /// Gigabytes unit of measurement.
+        /// </summary>
+        GB,
+        /// <summary>
+        /// Terabytes unit of measurement.
+        /// </summary>
+        TB
     }
 }

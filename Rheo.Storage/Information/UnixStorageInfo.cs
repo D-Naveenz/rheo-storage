@@ -1,6 +1,6 @@
 ﻿using Rheo.Storage.Contracts;
 
-namespace Rheo.Storage.Info
+namespace Rheo.Storage.Information
 {
     /// <summary>
     /// Represents detailed information about a file or directory on a Unix-based file system.

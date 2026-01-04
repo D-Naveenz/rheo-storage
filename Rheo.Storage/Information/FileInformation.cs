@@ -1,7 +1,7 @@
 ﻿using Rheo.Storage.FileDefinition;
 using Rheo.Storage.FileDefinition.Models.Result;
 
-namespace Rheo.Storage.Info
+namespace Rheo.Storage.Information
 {
     /// <summary>
     /// Provides detailed information about a file, including its type, MIME type, extension, and analysis results,
@@ -12,24 +12,21 @@ namespace Rheo.Storage.Info
     /// metadata, which can provide more accurate identification than relying on file name or extension alone. This
     /// class is typically used when you need to determine the true nature of a file, regardless of its name or
     /// extension.</remarks>
-    public class FileInformation : StorageInformation
+    public class FileInformation : StorageInformation, IEquatable<FileInformation>
     {
-        private readonly FileStream _stream;
-
         private readonly TaskCompletionSource<AnalysisResult> _analysisTaskAwaiter;
         private readonly Lazy<AnalysisResult> _identificationReportLazy;
 
         /// <summary>
-        /// Initializes a new instance of the FileInformation class using the specified file stream.
+        /// Initializes a new instance of the FileInformation class using the specified file stream for analysis.
         /// </summary>
-        /// <remarks>The analysis of the file stream begins immediately in a background task upon
-        /// construction. The provided stream must remain open and readable for the duration of the analysis.</remarks>
-        /// <param name="stream">The file stream to analyze. The stream must be readable.</param>
+        /// <remarks>The constructor does not take ownership of the provided stream. Callers are
+        /// responsible for managing the stream's lifetime and ensuring it remains open and readable until analysis is
+        /// complete.</remarks>
+        /// <param name="stream">The file stream to analyze. The stream must be readable and remain open for the duration of the analysis.</param>
         /// <exception cref="ArgumentException">Thrown if the provided stream is not readable.</exception>
         public FileInformation(FileStream stream) : base(stream.Name)
         {
-            _stream = stream;
-
             // Validate the stream
             if (!stream.CanRead)
             {
@@ -43,7 +40,7 @@ namespace Rheo.Storage.Info
             {
                 try
                 {
-                    var report = FileAnalyzer.AnalyzeStream(_stream);
+                    var report = FileAnalyzer.AnalyzeStream(stream);
                     _analysisTaskAwaiter.SetResult(report);
                 }
                 catch (Exception ex)
@@ -117,6 +114,53 @@ namespace Rheo.Storage.Info
         /// <inheritdoc/>
         public override ulong Size => _storageInfoLazy.Value.Size;
 
+        /// <inheritdoc/>
+        public bool Equals(FileInformation? other)
+        {
+            if (other is null)
+            {
+                return false;
+            }
+            return string.Equals(_absPath, other._absPath, StringComparison.OrdinalIgnoreCase) &&
+                   Size == other.Size &&
+                   ActualExtension == other.ActualExtension &&
+                   MimeType.Equals(other.MimeType);
+        }
+
+        /// <inheritdoc/>
+        public override bool Equals(object? obj)
+        {
+            return Equals(obj as FileInformation);
+        }
+
+        /// <inheritdoc/>
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(_absPath.ToLowerInvariant(), Size, ActualExtension, MimeType);
+        }
+
+        /// <inheritdoc/>
+        public static bool operator ==(FileInformation? left, FileInformation? right)
+        {
+            if (left is null)
+            {
+                return right is null;
+            }
+            return left.Equals(right);
+        }
+
+        /// <inheritdoc/>
+        public static bool operator !=(FileInformation? left, FileInformation? right)
+        {
+            return !(left == right);
+        }
+
         #endregion
+
+        /// <inheritdoc/>
+        public override string ToString()
+        {
+            return $"[{ActualExtension}] {DisplayName} ({FormattedSize})";
+        }
     }
 }

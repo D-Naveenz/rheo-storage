@@ -1,4 +1,4 @@
-﻿using Rheo.Storage.Info;
+﻿using Rheo.Storage.Information;
 using System.Diagnostics;
 
 namespace Rheo.Storage
@@ -6,7 +6,7 @@ namespace Rheo.Storage
     /// <summary>
     /// Provides functionality for managing and interacting with directories in the file system.
     /// </summary>
-    /// <remarks>The <see cref="DirectoryController"/> class extends <see cref="StorageController"/> to
+    /// <remarks>The <see cref="DirectoryController"/> class extends <see cref="StorageObject"/> to
     /// provide directory-specific operations, such as retrieving files, subdirectories, and metadata about the
     /// directory. It also implements <see cref="IStorageInfoContainer{T}"/> to expose detailed information about the
     /// directory through the <see cref="Information"/> property. <para> This class supports operations such as copying,
@@ -14,7 +14,7 @@ namespace Rheo.Storage
     /// proper handling of exceptions and provides additional context for error scenarios. </para> <para> Use this class
     /// when working with directories in a structured and programmatic way, especially when additional metadata or
     /// advanced operations are required. </para></remarks>
-    public class DirectoryController : StorageController, IStorageInfoContainer<DirectoryInformation>
+    public class DirectoryController : StorageObject, IStorageInfoContainer<DirectoryInformation>
     {
         private readonly DirectoryInformation? _storageInfo;
 

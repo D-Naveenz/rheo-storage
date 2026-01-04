@@ -2,7 +2,7 @@
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
 
-namespace Rheo.Storage.Info
+namespace Rheo.Storage.Information
 {
     /// <summary>
     /// Provides platform-specific methods and types for retrieving detailed file and directory information on Windows,

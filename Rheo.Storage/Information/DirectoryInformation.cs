@@ -1,6 +1,6 @@
 ﻿using System.Security;
 
-namespace Rheo.Storage.Info
+namespace Rheo.Storage.Information
 {
     /// <summary>
     /// Provides information about a directory, including file and subdirectory counts and total size, for a specified
@@ -10,7 +10,7 @@ namespace Rheo.Storage.Info
     /// the number of files, number of subdirectories, and the total size of all files within the directory tree. If the
     /// application lacks sufficient permissions to access parts of the directory, some properties may return fallback
     /// values (such as -1 or 0) to indicate that the operation could not be completed.</remarks>
-    public class DirectoryInformation : StorageInformation
+    public class DirectoryInformation : StorageInformation, IEquatable<DirectoryInformation>
     {
         private readonly DirectoryInfo _systemDirInfo;
 
@@ -24,9 +24,7 @@ namespace Rheo.Storage.Info
             Size = CalculateDirectorySize(_systemDirInfo);
         }
 
-        /// <summary>
-        /// Gets the total number of files in the directory and its subdirectories.
-        /// </summary>
+        #region Properties: Counts
         /// <remarks>This property attempts to retrieve the file count recursively. If the application
         /// does not have the necessary permissions  to access the directory or its subdirectories, the property returns
         /// -1 to indicate that the operation could not be completed.</remarks>
@@ -69,8 +67,55 @@ namespace Rheo.Storage.Info
             }
         }
 
+        #endregion
+
+        #region Properties: Size
         /// <inheritdoc/>
         public override ulong Size { get; }
+
+        #endregion
+
+        /// <inheritdoc/>
+        public override string ToString()
+        {
+            return $"{DisplayName} (Files={NoOfFiles}, Directories={NoOfDirectories}, Size={FormattedSize})";
+        }
+
+        /// <inheritdoc/>
+        public bool Equals(DirectoryInformation? other)
+        {
+            if (other is null)
+                return false;
+            return string.Equals(_absPath, other._absPath, StringComparison.OrdinalIgnoreCase) &&
+                   NoOfFiles == other.NoOfFiles &&
+                   NoOfDirectories == other.NoOfDirectories;
+        }
+
+        /// <inheritdoc/>
+        public override bool Equals(object? obj)
+        {
+            return obj is DirectoryInformation other && Equals(other);
+        }
+
+        /// <inheritdoc/>
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(_absPath.ToLowerInvariant(), NoOfFiles, NoOfDirectories);
+        }
+
+        /// <inheritdoc/>
+        public static bool operator ==(DirectoryInformation? left, DirectoryInformation? right)
+        {
+            if (left is null)
+                return right is null;
+            return left.Equals(right);
+        }
+
+        /// <inheritdoc/>
+        public static bool operator !=(DirectoryInformation? left, DirectoryInformation? right)
+        {
+            return !(left == right);
+        }
 
         private static ulong CalculateDirectorySize(DirectoryInfo systemDirInfo)
         {

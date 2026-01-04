@@ -1,4 +1,6 @@
-﻿namespace Rheo.Storage.Contracts
+﻿using Rheo.Storage.Information;
+
+namespace Rheo.Storage.Contracts
 {
     /// <summary>
     /// Provides detailed information about a storage object, such as a file or directory, including identity, attributes, size, timestamps, links, and platform-specific metadata.

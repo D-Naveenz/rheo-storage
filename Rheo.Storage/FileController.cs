@@ -1,4 +1,4 @@
-﻿using Rheo.Storage.Info;
+﻿using Rheo.Storage.Information;
 using System.Diagnostics;
 
 namespace Rheo.Storage
@@ -7,14 +7,14 @@ namespace Rheo.Storage
     /// Provides functionality for managing and manipulating files, including operations such as copying, moving,
     /// renaming, and deleting files.
     /// </summary>
-    /// <remarks>The <see cref="FileController"/> class extends <see cref="StorageController"/> and implements
+    /// <remarks>The <see cref="FileController"/> class extends <see cref="StorageObject"/> and implements
     /// <see cref="IStorageInfoContainer{T}"/>  to provide detailed file information and advanced file management
     /// capabilities. It supports asynchronous operations for file manipulation  and provides properties to access
     /// metadata such as creation time, file attributes, and MIME type. <para> This class is designed to handle both
     /// binary and non-binary files and includes mechanisms to retrieve file-specific information  through the <see
     /// cref="Information"/> property. It also ensures thread-safe operations and supports progress reporting for
     /// long-running tasks. </para></remarks>
-    public class FileController : StorageController, IStorageInfoContainer<FileInformation>
+    public class FileController : StorageObject
     {
         private readonly FileInformation? _storageInfo;
 
@@ -46,7 +46,7 @@ namespace Rheo.Storage
         /// </summary>
         public bool? IsBinary => Information.IsBinaryFile();
 
-        public FileInformation Information => _storageInfo ?? throw new InvalidOperationException("Storage information is not available.");
+        public override FileInformation Information => _storageInfo ?? throw new InvalidOperationException("Storage information is not available.");
 
         public string ContentType => Information.MimeType;
 
