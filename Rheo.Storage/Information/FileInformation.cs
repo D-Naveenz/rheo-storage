@@ -18,29 +18,24 @@ namespace Rheo.Storage.Information
         private readonly Lazy<AnalysisResult> _identificationReportLazy;
 
         /// <summary>
-        /// Initializes a new instance of the FileInformation class using the specified file stream for analysis.
+        /// Initializes a new instance of the FileInformation class and begins asynchronous analysis of the specified
+        /// file.
         /// </summary>
-        /// <remarks>The constructor does not take ownership of the provided stream. Callers are
-        /// responsible for managing the stream's lifetime and ensuring it remains open and readable until analysis is
-        /// complete.</remarks>
-        /// <param name="stream">The file stream to analyze. The stream must be readable and remain open for the duration of the analysis.</param>
-        /// <exception cref="ArgumentException">Thrown if the provided stream is not readable.</exception>
-        public FileInformation(FileStream stream) : base(stream.Name)
+        /// <remarks>The file analysis starts immediately in a background task upon construction. Any
+        /// exceptions encountered during analysis will be captured and can be observed when awaiting the analysis
+        /// result.</remarks>
+        /// <param name="abolutePath">The absolute path to the file to be analyzed. Cannot be null or empty.</param>
+        public FileInformation(string abolutePath) : base(abolutePath)
         {
-            // Validate the stream
-            if (!stream.CanRead)
-            {
-                throw new ArgumentException("The provided stream must be readable.", nameof(stream));
-            }
-
             // Initialize the task completion source
             _analysisTaskAwaiter = new TaskCompletionSource<AnalysisResult>();
+            
             // Start the analysis in a background task
             Task.Run(() =>
             {
                 try
                 {
-                    var report = FileAnalyzer.AnalyzeStream(stream);
+                    var report = FileAnalyzer.AnalyzeFile(abolutePath);
                     _analysisTaskAwaiter.SetResult(report);
                 }
                 catch (Exception ex)
@@ -48,6 +43,7 @@ namespace Rheo.Storage.Information
                     _analysisTaskAwaiter.SetException(ex);
                 }
             });
+            
             _identificationReportLazy = new Lazy<AnalysisResult>(() => _analysisTaskAwaiter.Task.GetAwaiter().GetResult());
         }
 

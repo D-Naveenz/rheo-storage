@@ -23,8 +23,7 @@ namespace Rheo.Storage.Test.Information
             File.WriteAllBytes(emptyFilePath, []);
 
             // Act
-            using var stream = new FileStream(emptyFilePath, FileMode.Open, FileAccess.Read);
-            var fileInfo = new FileInformation(stream);
+            var fileInfo = new FileInformation(emptyFilePath);
 
             // Assert
             Assert.NotNull(fileInfo);
@@ -41,8 +40,7 @@ namespace Rheo.Storage.Test.Information
             File.WriteAllBytes(unknownPath, unknownData);
 
             // Act
-            using var stream = new FileStream(unknownPath, FileMode.Open, FileAccess.Read);
-            var fileInfo = new FileInformation(stream);
+            var fileInfo = new FileInformation(unknownPath);
 
             // Assert
             Assert.NotNull(fileInfo.TypeName);
@@ -58,8 +56,7 @@ namespace Rheo.Storage.Test.Information
             File.WriteAllBytes(noExtPath, [0x89, 0x50, 0x4E, 0x47]); // PNG signature
 
             // Act
-            using var stream = new FileStream(noExtPath, FileMode.Open, FileAccess.Read);
-            var fileInfo = new FileInformation(stream);
+            var fileInfo = new FileInformation(noExtPath);
 
             // Assert
             // Extension property should reflect the file name, not content
@@ -75,8 +72,7 @@ namespace Rheo.Storage.Test.Information
             File.WriteAllBytes(mismatchPath, pngData);
 
             // Act
-            using var stream = new FileStream(mismatchPath, FileMode.Open, FileAccess.Read);
-            var fileInfo = new FileInformation(stream);
+            var fileInfo = new FileInformation(mismatchPath);
 
             // Assert
             Assert.Equal(".txt", fileInfo.Extension); // Name-based
@@ -85,16 +81,13 @@ namespace Rheo.Storage.Test.Information
         }
 
         [Fact]
-        public void Constructor_WithClosedStream_ThrowsException()
+        public void Constructor_WithNonExistentFile_ThrowsException()
         {
             // Arrange
-            var testPath = Path.Combine(_testDir.FullPath, "test.bin");
-            File.WriteAllBytes(testPath, [0x00, 0x01, 0x02]);
-            var stream = new FileStream(testPath, FileMode.Open, FileAccess.Read);
-            stream.Close();
+            var nonExistentPath = Path.Combine(_testDir.FullPath, "nonexistent.bin");
 
             // Act & Assert
-            Assert.Throws<ArgumentException>(() => new FileInformation(stream));
+            Assert.Throws<FileNotFoundException>(() => new FileInformation(nonExistentPath));
         }
 
         [Fact]
@@ -110,8 +103,7 @@ namespace Rheo.Storage.Test.Information
             File.WriteAllBytes(largePath, largeData);
 
             // Act
-            using var stream = new FileStream(largePath, FileMode.Open, FileAccess.Read);
-            var fileInfo = new FileInformation(stream);
+            var fileInfo = new FileInformation(largePath);
 
             // Assert
             Assert.NotNull(fileInfo.IdentificationReport);
@@ -127,10 +119,8 @@ namespace Rheo.Storage.Test.Information
             File.WriteAllBytes(testPath, [0x50, 0x4B, 0x03, 0x04]);
 
             // Act
-            using var stream1 = new FileStream(testPath, FileMode.Open, FileAccess.Read);
-            using var stream2 = new FileStream(testPath.ToLowerInvariant(), FileMode.Open, FileAccess.Read);
-            var fileInfo1 = new FileInformation(stream1);
-            var fileInfo2 = new FileInformation(stream2);
+            var fileInfo1 = new FileInformation(testPath);
+            var fileInfo2 = new FileInformation(testPath.ToLowerInvariant());
 
             // Assert
             // Should be equal regardless of path casing (on Windows)
@@ -149,8 +139,7 @@ namespace Rheo.Storage.Test.Information
             File.WriteAllBytes(pdfPath, pdfData);
 
             // Act
-            using var stream = new FileStream(pdfPath, FileMode.Open, FileAccess.Read);
-            var fileInfo = new FileInformation(stream);
+            var fileInfo = new FileInformation(pdfPath);
 
             // Assert
             Assert.NotNull(fileInfo.TypeName);
@@ -167,8 +156,7 @@ namespace Rheo.Storage.Test.Information
             File.WriteAllBytes(zipPath, zipSignature);
 
             // Act
-            using var stream = new FileStream(zipPath, FileMode.Open, FileAccess.Read);
-            var fileInfo = new FileInformation(stream);
+            var fileInfo = new FileInformation(zipPath);
 
             // Assert
             Assert.NotEmpty(fileInfo.IdentificationReport.Definitions);
@@ -192,8 +180,7 @@ namespace Rheo.Storage.Test.Information
             // Act
             var tasks = Enumerable.Range(0, 5).Select(async _ =>
             {
-                using var stream = new FileStream(testPath, FileMode.Open, FileAccess.Read, FileShare.Read);
-                var fileInfo = new FileInformation(stream);
+                var fileInfo = new FileInformation(testPath);
                 await Task.Delay(10); // Simulate work
                 return fileInfo.TypeName;
             });
@@ -214,8 +201,7 @@ namespace Rheo.Storage.Test.Information
             File.WriteAllBytes(emptyPath, []);
 
             // Act
-            using var stream = new FileStream(emptyPath, FileMode.Open, FileAccess.Read);
-            var fileInfo = new FileInformation(stream);
+            var fileInfo = new FileInformation(emptyPath);
 
             // Assert
             // Empty file should have default or empty MIME type
@@ -230,13 +216,11 @@ namespace Rheo.Storage.Test.Information
             File.WriteAllBytes(path1, [0x00, 0x01]);
 
             // Act
-            using var stream = new FileStream(path1, FileMode.Open, FileAccess.Read);
-            var fileInfo = new FileInformation(stream);
+            var fileInfo = new FileInformation(path1);
             var hash1 = fileInfo.GetHashCode();
             
             // Create another instance with same file
-            using var stream2 = new FileStream(path1, FileMode.Open, FileAccess.Read);
-            var fileInfo2 = new FileInformation(stream2);
+            var fileInfo2 = new FileInformation(path1);
             var hash2 = fileInfo2.GetHashCode();
 
             // Assert
@@ -252,8 +236,7 @@ namespace Rheo.Storage.Test.Information
             File.WriteAllBytes(testPath, pngData);
 
             // Act
-            using var stream = new FileStream(testPath, FileMode.Open, FileAccess.Read);
-            var fileInfo = new FileInformation(stream);
+            var fileInfo = new FileInformation(testPath);
             var result = fileInfo.ToString();
 
             // Assert

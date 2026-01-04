@@ -58,26 +58,29 @@ namespace Rheo.Storage.Test.Models
                 true);
 
             long totalBytes = memoryStream.Length;
-            long totalBytesRead = 0;
+            long totalBytesWritten = 0;
             Stopwatch stopwatch = Stopwatch.StartNew();
 
             byte[] buffer = new byte[bufferSize];
-            int bytesRead;
-            while ((bytesRead = await memoryStream.ReadAsync(buffer, cancellationToken)) > 0)
+            int bytesWritten;
+            while ((bytesWritten = await memoryStream.ReadAsync(buffer, cancellationToken)) > 0)
             {
-                await destStream.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken);
-                totalBytesRead += bytesRead;
+                await destStream.WriteAsync(buffer.AsMemory(0, bytesWritten), cancellationToken);
+                totalBytesWritten += bytesWritten;
                 if (progress != null)
                 {
-                    double bytesPerSecond = totalBytesRead / stopwatch.Elapsed.TotalSeconds;
+                    double bytesPerSecond = totalBytesWritten / stopwatch.Elapsed.TotalSeconds;
                     progress.Report(new StorageProgress
                     {
                         TotalBytes = totalBytes,
-                        BytesTransferred = totalBytesRead,
+                        BytesTransferred = totalBytesWritten,
                         BytesPerSecond = bytesPerSecond
                     });
                 }
             }
+
+            // Ensure all data is flushed to the file
+            await destStream.FlushAsync(cancellationToken);
         }
     }
 }

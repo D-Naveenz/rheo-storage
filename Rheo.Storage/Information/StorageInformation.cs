@@ -28,16 +28,24 @@ namespace Rheo.Storage.Information
         protected readonly Lazy<IStorageInfoStruct> _storageInfoLazy;
 
         /// <summary>
-        /// Initializes a new instance of the StorageInformation class using the specified absolute path to the storage
-        /// location.
+        /// Initializes a new instance of the StorageInformation class for the specified file path.
         /// </summary>
-        /// <remarks>This constructor begins retrieving platform-specific storage information
-        /// asynchronously upon initialization. The provided path must be a valid absolute path; otherwise, subsequent
-        /// operations may fail.</remarks>
-        /// <param name="absolutePath">The absolute path to the storage location. This value is used to identify and retrieve platform-specific
-        /// storage information.</param>
+        /// <param name="absolutePath">The absolute path to the file for which storage information will be retrieved. The path must refer to an
+        /// existing file and cannot be null, empty, or consist only of white-space characters.</param>
+        /// <exception cref="ArgumentException">Thrown if absolutePath is null, empty, or consists only of white-space characters.</exception>
+        /// <exception cref="FileNotFoundException">Thrown if the file specified by absolutePath does not exist.</exception>
         public StorageInformation(string absolutePath)
         {
+            // Validate the path
+            if (string.IsNullOrWhiteSpace(absolutePath))
+            {
+                throw new ArgumentException("The file path cannot be null or whitespace.", nameof(absolutePath));
+            }
+            else if (!File.Exists(absolutePath))
+            {
+                throw new FileNotFoundException("The specified file does not exist.", absolutePath);
+            }
+
             _absPath = absolutePath;
 
             // Initialize the storage info task completion source
@@ -177,23 +185,23 @@ namespace Rheo.Storage.Information
         /// <param name="winfo">When this method returns, contains a <see cref="WindowsStorageInfo"/> object with Windows-specific storage
         /// details if available; otherwise, the default value.</param>
         /// <returns>true if Windows storage information was successfully retrieved; otherwise, false.</returns>
-        protected bool TryGetWindowsStorageInfo(out WindowsStorageInfo winfo)
+        protected bool TryGetWindowsStorageInfo(out WindowsStorageInfo windowsInfo)
         {
-            winfo = default;
             try
             {
-                var storageInfo = _storageInfoLazy.Value;
-                if (storageInfo is WindowsStorageInfo windowsInfo)
+                if (OperatingSystem.IsWindows())
                 {
-                    winfo = windowsInfo;
+                    windowsInfo = InformationProvider.GetWindowsFileInfo(_absPath);
                     return true;
                 }
-                return false;
             }
             catch
             {
-                return false;
+                // Handle exception
             }
+
+            windowsInfo = default;
+            return false;
         }
 
         /// <summary>

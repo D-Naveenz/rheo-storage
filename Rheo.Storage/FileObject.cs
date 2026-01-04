@@ -13,37 +13,25 @@ namespace Rheo.Storage
     /// This class is not thread-safe; concurrent access to the same instance should be avoided.</remarks>
     public class FileObject : StorageObject
     {
-        private readonly FileStream _stream;
-
         /// <summary>
-        /// Initializes a new instance of the FileObject class for the specified file path, opening the file for read
-        /// and write access.
+        /// Initializes a new instance of the FileObject class for the specified file path, creating the file if it does
+        /// not already exist.
         /// </summary>
-        /// <param name="path">The path to the file to open or create. The path can be relative or absolute.</param>
-        /// <exception cref="IOException">Thrown if the file cannot be opened or created at the specified path.</exception>
+        /// <remarks>If the specified file does not exist, it is created. The constructor does not keep
+        /// the file open after initialization.</remarks>
+        /// <param name="path">The path to the file to be represented by this object. Can be either an absolute or relative path.</param>
         public FileObject(string path) : base(path)
         {
             path = FullPath; // Ensure base class has processed the path
 
-            try
-            {
-                _stream = new FileStream(
-                    path, 
-                    FileMode.OpenOrCreate, // Open the file if it exists, otherwise create a new one 
-                    FileAccess.ReadWrite, 
-                    FileShare.None);
-
-            }
-            catch (Exception ex)
-            {
-                throw new IOException($"Failed to open file at path: {path}", ex);
-            }
+            // Ensure the file exists without holding a stream open
+            File.Open(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read).Dispose();
         }
 
         /// <summary>
         /// Gets metadata information about the storage object, such as size, attributes, and timestamps.
         /// </summary>
-        public FileInformation Information => (FileInformation)_informationInternal;
+        public FileInformation Information => (FileInformation)_informationInternal!;
 
         /// <inheritdoc/>
         public override string Name => Path.GetFileName(FullPath);
@@ -204,19 +192,9 @@ namespace Rheo.Storage
         }
 
         /// <inheritdoc/>
-        public override void Dispose()
-        {
-            // Dispose the underlying file stream
-            _stream?.Dispose();
-
-            base.Dispose();
-            GC.SuppressFinalize(this);
-        }
-
-        /// <inheritdoc/>
         protected override FileInformation CrateNewInformationInstance()
         {
-            return new FileInformation(_stream);
+            return new FileInformation(FullPath);
         }
 
         /// <summary>

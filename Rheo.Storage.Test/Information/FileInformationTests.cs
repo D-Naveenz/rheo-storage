@@ -14,7 +14,7 @@ namespace Rheo.Storage.Test.Information
         private TestDirectory TestDir => _fixture.TestDir;
 
         [Fact]
-        public async Task Constructor_WithValidFileStream_CreatesInstanceAsync()
+        public async Task Constructor_WithValidFilePath_CreatesInstanceAsync()
         {
             // Arrange
             var testFile = await TestDir.CreateTestFileAsync(
@@ -23,27 +23,20 @@ namespace Rheo.Storage.Test.Information
                 );
 
             // Act
-            using var stream = new FileStream(testFile.FullPath, FileMode.Open, FileAccess.Read);
-            var fileInfo = new FileInformation(stream);
+            var fileInfo = new FileInformation(testFile.FullPath);
 
             // Assert
             Assert.NotNull(fileInfo);
-            Assert.Equal(testFile.FullPath, fileInfo.FullPath);
         }
 
         [Fact]
-        public async Task Constructor_WithNonReadableStream_ThrowsArgumentExceptionAsync()
+        public void Constructor_WithNonExistentPath_ThrowsException()
         {
             // Arrange
-            var testFile = await TestDir.CreateTestFileAsync(
-                ResourceType.Text,
-                cancellationToken: TestContext.Current.CancellationToken
-                );
+            var nonExistentPath = Path.Combine(TestDir.FullPath, "nonexistent.bin");
 
             // Act & Assert
-            using var stream = new FileStream(testFile.FullPath, FileMode.Open, FileAccess.Write);
-            var exception = Assert.Throws<ArgumentException>(() => new FileInformation(stream));
-            Assert.Contains("readable", exception.Message, StringComparison.OrdinalIgnoreCase);
+            Assert.Throws<FileNotFoundException>(() => new FileInformation(nonExistentPath));
         }
 
         [Fact]
@@ -56,8 +49,7 @@ namespace Rheo.Storage.Test.Information
                 );
 
             // Act
-            using var stream = new FileStream(testFile.FullPath, FileMode.Open, FileAccess.Read);
-            var fileInfo = new FileInformation(stream);
+            var fileInfo = new FileInformation(testFile.FullPath);
 
             // Assert
             Assert.NotNull(fileInfo.TypeName);
@@ -75,8 +67,7 @@ namespace Rheo.Storage.Test.Information
                 );
 
             // Act
-            using var stream = new FileStream(testFile.FullPath, FileMode.Open, FileAccess.Read);
-            var fileInfo = new FileInformation(stream);
+            var fileInfo = new FileInformation(testFile.FullPath);
 
             // Assert
             Assert.NotNull(fileInfo.MimeType.Subject);
@@ -93,8 +84,7 @@ namespace Rheo.Storage.Test.Information
                 );
 
             // Act
-            using var stream = new FileStream(testFile.FullPath, FileMode.Open, FileAccess.Read);
-            var fileInfo = new FileInformation(stream);
+            var fileInfo = new FileInformation(testFile.FullPath);
 
             // Assert
             Assert.NotNull(fileInfo.Extension);
@@ -111,8 +101,7 @@ namespace Rheo.Storage.Test.Information
                 );
 
             // Act
-            using var stream = new FileStream(testFile.FullPath, FileMode.Open, FileAccess.Read);
-            var fileInfo = new FileInformation(stream);
+            var fileInfo = new FileInformation(testFile.FullPath);
 
             // Assert
             Assert.NotNull(fileInfo.ActualExtension.Subject);
@@ -130,8 +119,7 @@ namespace Rheo.Storage.Test.Information
                 );
 
             // Act
-            using var stream = new FileStream(testFile.FullPath, FileMode.Open, FileAccess.Read);
-            var fileInfo = new FileInformation(stream);
+            var fileInfo = new FileInformation(testFile.FullPath);
 
             // Assert
             Assert.NotNull(fileInfo.IdentificationReport);
@@ -149,8 +137,7 @@ namespace Rheo.Storage.Test.Information
             var expectedSize = (ulong)new FileInfo(testFile.FullPath).Length;
 
             // Act
-            using var stream = new FileStream(testFile.FullPath, FileMode.Open, FileAccess.Read);
-            var fileInfo = new FileInformation(stream);
+            var fileInfo = new FileInformation(testFile.FullPath);
 
             // Assert
             Assert.Equal(expectedSize, fileInfo.Size);
@@ -166,10 +153,8 @@ namespace Rheo.Storage.Test.Information
                 );
 
             // Act
-            using var stream1 = new FileStream(testFile.FullPath, FileMode.Open, FileAccess.Read);
-            using var stream2 = new FileStream(testFile.FullPath, FileMode.Open, FileAccess.Read);
-            var fileInfo1 = new FileInformation(stream1);
-            var fileInfo2 = new FileInformation(stream2);
+            var fileInfo1 = new FileInformation(testFile.FullPath);
+            var fileInfo2 = new FileInformation(testFile.FullPath);
 
             // Assert
             Assert.Equal(fileInfo1, fileInfo2);
@@ -191,10 +176,8 @@ namespace Rheo.Storage.Test.Information
                 );
 
             // Act
-            using var stream1 = new FileStream(testFile1.FullPath, FileMode.Open, FileAccess.Read);
-            using var stream2 = new FileStream(testFile2.FullPath, FileMode.Open, FileAccess.Read);
-            var fileInfo1 = new FileInformation(stream1);
-            var fileInfo2 = new FileInformation(stream2);
+            var fileInfo1 = new FileInformation(testFile1.FullPath);
+            var fileInfo2 = new FileInformation(testFile2.FullPath);
 
             // Assert
             Assert.NotEqual(fileInfo1, fileInfo2);
@@ -210,8 +193,7 @@ namespace Rheo.Storage.Test.Information
             File.WriteAllBytes(emptyFilePath, [0x00]);
 
             // Act
-            using var stream = new FileStream(emptyFilePath, FileMode.Open, FileAccess.Read);
-            var fileInfo = new FileInformation(stream);
+            var fileInfo = new FileInformation(emptyFilePath);
 
             // Assert
             Assert.False(fileInfo.Equals(null));
@@ -229,10 +211,8 @@ namespace Rheo.Storage.Test.Information
                 );
 
             // Act
-            using var stream1 = new FileStream(testFile.FullPath, FileMode.Open, FileAccess.Read);
-            using var stream2 = new FileStream(testFile.FullPath, FileMode.Open, FileAccess.Read);
-            var fileInfo1 = new FileInformation(stream1);
-            var fileInfo2 = new FileInformation(stream2);
+            var fileInfo1 = new FileInformation(testFile.FullPath);
+            var fileInfo2 = new FileInformation(testFile.FullPath);
 
             // Assert
             Assert.Equal(fileInfo1.GetHashCode(), fileInfo2.GetHashCode());
@@ -248,8 +228,7 @@ namespace Rheo.Storage.Test.Information
                 );
 
             // Act
-            using var stream = new FileStream(testFile.FullPath, FileMode.Open, FileAccess.Read);
-            var fileInfo = new FileInformation(stream);
+            var fileInfo = new FileInformation(testFile.FullPath);
             var result = fileInfo.ToString();
 
             // Assert
@@ -273,8 +252,7 @@ namespace Rheo.Storage.Test.Information
                 );
 
             // Act
-            using var stream = new FileStream(testFile.FullPath, FileMode.Open, FileAccess.Read);
-            var fileInfo = new FileInformation(stream);
+            var fileInfo = new FileInformation(testFile.FullPath);
 
             // Assert
             Assert.NotNull(fileInfo);
@@ -293,8 +271,7 @@ namespace Rheo.Storage.Test.Information
                 );
 
             // Act
-            using var stream = new FileStream(testFile.FullPath, FileMode.Open, FileAccess.Read);
-            var fileInfo = new FileInformation(stream);
+            var fileInfo = new FileInformation(testFile.FullPath);
             
             // Access the report (should wait for async analysis to complete)
             var report = fileInfo.IdentificationReport;
@@ -314,8 +291,7 @@ namespace Rheo.Storage.Test.Information
                 );
 
             // Act
-            using var stream = new FileStream(testFile.FullPath, FileMode.Open, FileAccess.Read);
-            var fileInfo = new FileInformation(stream);
+            var fileInfo = new FileInformation(testFile.FullPath);
 
             // Assert
             Assert.NotNull(fileInfo.MimeType.Subject);

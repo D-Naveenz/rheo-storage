@@ -11,10 +11,15 @@ namespace Rheo.Storage
     /// implement abstract members to provide specific behavior for the storage type.</remarks>
     public abstract class StorageObject : IDisposable
     {
-        private const uint MIN_BUFFER_SIZE = 1024; // 1KB
-        private const uint MAX_BUFFER_SIZE = 16 * 1024 * 1024; // 16MB
+        private const int MIN_BUFFER_SIZE = 1024; // 1KB
+        private const int MAX_BUFFER_SIZE = 16 * 1024 * 1024; // 16MB
 
-        protected IStorageInformation _informationInternal;
+        /// <summary>
+        /// Provides access to storage information for use by derived classes.
+        /// </summary>
+        /// <remarks>This field is intended for internal use within derived types to store or retrieve
+        /// storage-related metadata. It may be null if storage information has not been initialized.</remarks>
+        protected IStorageInformation? _informationInternal;
 
         private readonly Lock _infoLock = new();
 
@@ -37,9 +42,6 @@ namespace Rheo.Storage
 
             // Initialize event listners
             StorageChanged += StorageObject_StorageChanged;
-
-            // Load the information
-            _informationInternal = CrateNewInformationInstance()!;
         }
 
         #region Properties
@@ -154,7 +156,7 @@ namespace Rheo.Storage
         /// size is used.</param>
         /// <returns>A buffer size, in bytes, that is suitable for the specified total size and constrained to the allowed
         /// minimum and maximum values.</returns>
-        protected static uint GetBufferSize(ulong? size)
+        protected static int GetBufferSize(ulong? size)
         {
             if (size is null || size == 0)
                 return MIN_BUFFER_SIZE;
@@ -163,7 +165,7 @@ namespace Rheo.Storage
             else if (size > MAX_BUFFER_SIZE)
                 return MAX_BUFFER_SIZE;
             else
-                return Math.Min(MAX_BUFFER_SIZE, Math.Max(MIN_BUFFER_SIZE, (uint)(size / 100))); // Aim for ~100 chunks
+                return Math.Min(MAX_BUFFER_SIZE, Math.Max(MIN_BUFFER_SIZE, (int)(size / 100))); // Aim for ~100 chunks
         }
 
         /// <summary>

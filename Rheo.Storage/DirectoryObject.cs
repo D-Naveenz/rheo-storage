@@ -55,6 +55,9 @@ namespace Rheo.Storage
                 _watcher.Changed += Watcher_Changed;
                 _watcher.Created += Watcher_Changed;
                 _watcher.Deleted += Watcher_Changed;
+
+                // Load the information
+                _informationInternal = CrateNewInformationInstance();
             }
             catch (Exception ex)
             {
@@ -65,7 +68,7 @@ namespace Rheo.Storage
         /// <summary>
         /// Gets metadata information about the storage object, such as size, attributes, and timestamps.
         /// </summary>
-        public DirectoryInformation Information => (DirectoryInformation)_informationInternal;
+        public DirectoryInformation Information => (DirectoryInformation)_informationInternal!;
 
         /// <inheritdoc/>
         public override string Name => Path.GetDirectoryName(FullPath)!;

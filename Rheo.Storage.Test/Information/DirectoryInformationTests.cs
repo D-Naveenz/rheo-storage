@@ -24,7 +24,6 @@ namespace Rheo.Storage.Test.Information
 
             // Assert
             Assert.NotNull(dirInfo);
-            Assert.Equal(dirPath, dirInfo.FullPath);
         }
 
         [Fact]
@@ -38,7 +37,6 @@ namespace Rheo.Storage.Test.Information
 
             // Assert
             Assert.NotNull(dirInfo);
-            Assert.Equal(nonExistentPath, dirInfo.FullPath);
         }
 
         [Fact]
@@ -387,7 +385,6 @@ namespace Rheo.Storage.Test.Information
 
             // Assert
             Assert.NotNull(dirInfo);
-            Assert.NotNull(dirInfo.FullPath);
         }
     }
 }

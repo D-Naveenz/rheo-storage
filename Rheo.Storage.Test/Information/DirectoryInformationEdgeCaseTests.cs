@@ -1,6 +1,5 @@
 using Rheo.Storage.Information;
 using Rheo.Storage.Test.Models;
-using System.Security;
 
 namespace Rheo.Storage.Test.Information
 {
@@ -186,8 +185,8 @@ namespace Rheo.Storage.Test.Information
 
             if (OperatingSystem.IsWindows())
             {
-                var dirInfo = new System.IO.DirectoryInfo(hiddenDirPath);
-                dirInfo.Attributes |= FileAttributes.Hidden;
+                var winDirInfo = new DirectoryInfo(hiddenDirPath);
+                winDirInfo.Attributes |= FileAttributes.Hidden;
             }
 
             // Act
