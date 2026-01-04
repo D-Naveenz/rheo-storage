@@ -15,11 +15,19 @@ namespace Rheo.Storage.Information
         private readonly DirectoryInfo _systemDirInfo;
 
         /// <summary>
-        /// Initializes a new instance of the DirectoryInfomation class for the specified absolute directory path.
+        /// Initializes a new instance of the DirectoryInformation class for the specified absolute directory path.
         /// </summary>
-        /// <param name="absolutePath">The absolute path of the directory to represent. Cannot be null or empty.</param>
+        /// <param name="absolutePath">The absolute path of the directory to retrieve information for. The path must refer to an existing
+        /// directory.</param>
+        /// <exception cref="DirectoryNotFoundException">Thrown if the directory specified by absolutePath does not exist.</exception>
         public DirectoryInformation(string absolutePath) : base(absolutePath)
         {
+            // Validate Path
+            if (!Directory.Exists(absolutePath))
+            {
+                throw new DirectoryNotFoundException($"The specified directory does not exist: {absolutePath}");
+            }
+
             _systemDirInfo = new(absolutePath);
             Size = CalculateDirectorySize(_systemDirInfo);
         }

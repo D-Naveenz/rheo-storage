@@ -18,15 +18,21 @@ namespace Rheo.Storage.Information
         private readonly Lazy<AnalysisResult> _identificationReportLazy;
 
         /// <summary>
-        /// Initializes a new instance of the FileInformation class and begins asynchronous analysis of the specified
-        /// file.
+        /// Initializes a new instance of the FileInformation class for the specified file path and begins asynchronous
+        /// analysis of the file.
         /// </summary>
-        /// <remarks>The file analysis starts immediately in a background task upon construction. Any
-        /// exceptions encountered during analysis will be captured and can be observed when awaiting the analysis
-        /// result.</remarks>
-        /// <param name="abolutePath">The absolute path to the file to be analyzed. Cannot be null or empty.</param>
-        public FileInformation(string abolutePath) : base(abolutePath)
+        /// <remarks>The file analysis is started in the background upon construction. Accessing analysis
+        /// results may block until the analysis is complete.</remarks>
+        /// <param name="absolutePath">The absolute path to the file to be analyzed. The file must exist at the specified location.</param>
+        /// <exception cref="FileNotFoundException">Thrown if the file specified by absolutePath does not exist.</exception>
+        public FileInformation(string absolutePath) : base(absolutePath)
         {
+            // Validate Path
+            if (!File.Exists(absolutePath))
+            {
+                throw new FileNotFoundException("The specified file does not exist.", absolutePath);
+            }
+
             // Initialize the task completion source
             _analysisTaskAwaiter = new TaskCompletionSource<AnalysisResult>();
             
@@ -35,7 +41,7 @@ namespace Rheo.Storage.Information
             {
                 try
                 {
-                    var report = FileAnalyzer.AnalyzeFile(abolutePath);
+                    var report = FileAnalyzer.AnalyzeFile(absolutePath);
                     _analysisTaskAwaiter.SetResult(report);
                 }
                 catch (Exception ex)

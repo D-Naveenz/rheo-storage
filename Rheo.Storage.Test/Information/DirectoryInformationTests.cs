@@ -27,16 +27,13 @@ namespace Rheo.Storage.Test.Information
         }
 
         [Fact]
-        public void Constructor_WithNonExistentPath_CreatesInstanceWithoutThrowing()
+        public void Constructor_WithNonExistentPath_ThrowsException()
         {
             // Arrange
             var nonExistentPath = Path.Combine(TestDir.FullPath, "nonexistent", "directory");
 
-            // Act
-            var dirInfo = new DirectoryInformation(nonExistentPath);
-
-            // Assert
-            Assert.NotNull(dirInfo);
+            // Act & Assert
+            Assert.Throws<DirectoryNotFoundException>(() => new DirectoryInformation(nonExistentPath));
         }
 
         [Fact]

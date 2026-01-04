@@ -28,22 +28,20 @@ namespace Rheo.Storage.Information
         protected readonly Lazy<IStorageInfoStruct> _storageInfoLazy;
 
         /// <summary>
-        /// Initializes a new instance of the StorageInformation class for the specified file path.
+        /// Initializes a new instance of the StorageInformation class for the specified absolute file path.
         /// </summary>
-        /// <param name="absolutePath">The absolute path to the file for which storage information will be retrieved. The path must refer to an
-        /// existing file and cannot be null, empty, or consist only of white-space characters.</param>
+        /// <remarks>This constructor begins retrieving platform-specific storage information in the
+        /// background upon initialization. Accessing storage information properties may block until retrieval is
+        /// complete.</remarks>
+        /// <param name="absolutePath">The absolute path to the file or directory for which storage information will be retrieved. Cannot be null,
+        /// empty, or consist only of white-space characters.</param>
         /// <exception cref="ArgumentException">Thrown if absolutePath is null, empty, or consists only of white-space characters.</exception>
-        /// <exception cref="FileNotFoundException">Thrown if the file specified by absolutePath does not exist.</exception>
         public StorageInformation(string absolutePath)
         {
             // Validate the path
             if (string.IsNullOrWhiteSpace(absolutePath))
             {
                 throw new ArgumentException("The file path cannot be null or whitespace.", nameof(absolutePath));
-            }
-            else if (!File.Exists(absolutePath))
-            {
-                throw new FileNotFoundException("The specified file does not exist.", absolutePath);
             }
 
             _absPath = absolutePath;
@@ -182,7 +180,7 @@ namespace Rheo.Storage.Information
         /// <remarks>This method does not throw exceptions. If the underlying storage information is not
         /// compatible with Windows or an error occurs, the method returns false and <paramref name="winfo"/> is set to
         /// its default value.</remarks>
-        /// <param name="winfo">When this method returns, contains a <see cref="WindowsStorageInfo"/> object with Windows-specific storage
+        /// <param name="windowsInfo">When this method returns, contains a <see cref="WindowsStorageInfo"/> object with Windows-specific storage
         /// details if available; otherwise, the default value.</param>
         /// <returns>true if Windows storage information was successfully retrieved; otherwise, false.</returns>
         protected bool TryGetWindowsStorageInfo(out WindowsStorageInfo windowsInfo)

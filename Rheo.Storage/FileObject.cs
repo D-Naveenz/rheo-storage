@@ -26,6 +26,9 @@ namespace Rheo.Storage
 
             // Ensure the file exists without holding a stream open
             File.Open(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read).Dispose();
+
+            // Load the information
+            _informationInternal = CrateNewInformationInstance();
         }
 
         /// <summary>
