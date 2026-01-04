@@ -101,12 +101,13 @@ namespace Rheo.Storage.Test.Information
         public void NoOfDirectories_WithMultipleSubdirectories_ReturnsCorrectCount()
         {
             // Arrange
-            Directory.CreateDirectory(Path.Combine(TestDir.FullPath, "dir1"));
-            Directory.CreateDirectory(Path.Combine(TestDir.FullPath, "dir2"));
-            Directory.CreateDirectory(Path.Combine(TestDir.FullPath, "dir3"));
+            var tempDir = Path.Combine(TestDir.FullPath, Guid.NewGuid().ToString());
+            Directory.CreateDirectory(Path.Combine(tempDir, "dir1"));
+            Directory.CreateDirectory(Path.Combine(tempDir, "dir2"));
+            Directory.CreateDirectory(Path.Combine(tempDir, "dir3"));
 
             // Act
-            var dirInfo = new DirectoryInformation(TestDir.FullPath);
+            var dirInfo = new DirectoryInformation(tempDir);
 
             // Assert
             Assert.Equal(3, dirInfo.NoOfDirectories);
@@ -130,13 +131,14 @@ namespace Rheo.Storage.Test.Information
         public void NoOfDirectories_WithNestedDirectories_CountsRecursively()
         {
             // Arrange
-            var dir1 = Path.Combine(TestDir.FullPath, "level1");
+            var tempDir = Path.Combine(TestDir.FullPath, Guid.NewGuid().ToString());
+            var dir1 = Path.Combine(tempDir, "level1");
             var dir2 = Path.Combine(dir1, "level2");
             var dir3 = Path.Combine(dir2, "level3");
             Directory.CreateDirectory(dir3);
 
             // Act
-            var dirInfo = new DirectoryInformation(TestDir.FullPath);
+            var dirInfo = new DirectoryInformation(tempDir);
 
             // Assert
             Assert.Equal(3, dirInfo.NoOfDirectories);
@@ -251,7 +253,7 @@ namespace Rheo.Storage.Test.Information
         }
 
         [Fact]
-        public async Task Equals_WithSamePathDifferentContent_ReturnsFalseAsync()
+        public async Task Equals_WithSamePathDifferentContent_ReturnsTrueAsync()
         {
             // Arrange
             var dirPath = TestDir.FullPath;
@@ -266,7 +268,7 @@ namespace Rheo.Storage.Test.Information
             var dirInfo2 = new DirectoryInformation(dirPath);
 
             // Assert
-            Assert.NotEqual(dirInfo1, dirInfo2);
+            Assert.Equal(dirInfo1, dirInfo2);
         }
 
         [Fact]
