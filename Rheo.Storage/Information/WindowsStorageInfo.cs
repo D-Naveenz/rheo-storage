@@ -1,4 +1,5 @@
 ﻿using Rheo.Storage.Contracts;
+using System.Drawing;
 
 namespace Rheo.Storage.Information
 {
@@ -38,7 +39,7 @@ namespace Rheo.Storage.Information
         /// <summary>
         /// Handle to the icon representing this file. Must be destroyed with DestroyIcon when done.
         /// </summary>
-        public nint IconHandle { get; set; }
+        public Icon Icon { get; set; }
 
         /// <summary>
         /// The security identifier (SID) of the file owner.

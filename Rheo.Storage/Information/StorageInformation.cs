@@ -1,4 +1,5 @@
 ﻿using Rheo.Storage.Contracts;
+using System.Drawing;
 
 namespace Rheo.Storage.Information
 {
@@ -134,7 +135,7 @@ namespace Rheo.Storage.Information
         public string? OwnerSid => TryGetWindowsStorageInfo(out var winfo) ? winfo.OwnerSid : null;
 
         /// <inheritdoc/>
-        public nint? IconHandle => TryGetWindowsStorageInfo(out var winfo) ? winfo.IconHandle : null;
+        public Icon? Icon => TryGetWindowsStorageInfo(out var winfo) ? winfo.Icon : null;
 
         /// <inheritdoc/>
         public uint? OwnerId => TryGetUnixStorageInfo(out var uinfo) ? uinfo.OwnerId : null;

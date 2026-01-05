@@ -1,4 +1,5 @@
 ﻿using Rheo.Storage.Information;
+using System.Drawing;
 
 namespace Rheo.Storage.Contracts
 {
@@ -94,9 +95,9 @@ namespace Rheo.Storage.Contracts
         string? OwnerSid { get; }
 
         /// <summary>
-        /// The handle to the icon associated with the storage object (Windows only).
+        /// Gets the icon associated with this instance, if available. (Windows only)
         /// </summary>
-        nint? IconHandle { get; }
+        Icon? Icon { get; }
 
         /// <summary>
         /// The user ID of the owner (Unix only).

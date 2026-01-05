@@ -1,6 +1,9 @@
-﻿using System.ComponentModel;
+﻿using Microsoft.Win32.SafeHandles;
+using System.ComponentModel;
+using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Runtime.InteropServices.ComTypes;
+using System.Runtime.Versioning;
 
 namespace Rheo.Storage.Information
 {
@@ -17,182 +20,6 @@ namespace Rheo.Storage.Information
     internal static partial class InformationProvider
     {
         #region Windows Implementation
-        /// <summary>
-        /// Specifies flags that control the information retrieved by the Windows Shell API function SHGetFileInfo.
-        /// </summary>
-        /// <remarks>
-        /// The <see cref="SHGFI"/> enumeration defines constants used to specify which attributes or information
-        /// about a file or folder should be retrieved from the Windows Shell. These flags can be combined using a bitwise OR operation.
-        /// </remarks>
-        [Flags]
-        private enum SHGFI : uint
-        {
-            /// <summary>
-            /// Retrieve the handle to the icon that represents the file or folder.
-            /// </summary>
-            Icon = 0x000000100,
-
-            /// <summary>
-            /// Retrieve the display name for the file or folder.
-            /// </summary>
-            DisplayName = 0x000000200,
-
-            /// <summary>
-            /// Retrieve the string that describes the file's type.
-            /// </summary>
-            TypeName = 0x000000400,
-
-            /// <summary>
-            /// Retrieve the file or folder attributes.
-            /// </summary>
-            Attributes = 0x000000800,
-
-            /// <summary>
-            /// Retrieve the name of the file that contains the icon representing the file or folder, as well as the icon index within that file.
-            /// </summary>
-            IconLocation = 0x000001000,
-
-            /// <summary>
-            /// Retrieve the type of the executable file if the file is an executable.
-            /// </summary>
-            ExeType = 0x000002000,
-
-            /// <summary>
-            /// Retrieve the index of the icon within the system image list.
-            /// </summary>
-            SysIconIndex = 0x000004000,
-
-            /// <summary>
-            /// Add the link overlay to the icon, indicating that the file or folder is a shortcut.
-            /// </summary>
-            LinkOverlay = 0x000008000,
-
-            /// <summary>
-            /// Show the icon in the selected state.
-            /// </summary>
-            Selected = 0x000010000,
-
-            /// <summary>
-            /// Retrieve only the attributes that are specified in the dwFileAttributes parameter.
-            /// </summary>
-            AttrSpecified = 0x000020000,
-
-            /// <summary>
-            /// Retrieve the large version of the icon.
-            /// </summary>
-            LargeIcon = 0x000000000,
-
-            /// <summary>
-            /// Retrieve the small version of the icon.
-            /// </summary>
-            SmallIcon = 0x000000001,
-
-            /// <summary>
-            /// Retrieve the open version of the icon.
-            /// </summary>
-            OpenIcon = 0x000000002,
-
-            /// <summary>
-            /// Retrieve the shell-sized icon.
-            /// </summary>
-            ShellIconSize = 0x000000004,
-
-            /// <summary>
-            /// Indicates that the pszPath parameter is a pointer to an item identifier list (PIDL) rather than a file path.
-            /// </summary>
-            Pidl = 0x000000008,
-
-            /// <summary>
-            /// Indicates that the function should use the file attributes passed in the dwFileAttributes parameter.
-            /// </summary>
-            UseFileAttributes = 0x000000010
-        }
-
-        /// <summary>
-        /// Contains information about a file object, including its icon, display name, type name, and attributes, for
-        /// use with Windows Shell API functions.
-        /// </summary>
-        /// <remarks>The SHFILEINFO structure is primarily used in interop scenarios to receive
-        /// information from native Windows Shell functions, such as SHGetFileInfo. Its fields provide access to icon
-        /// handles, display names, type names, and attribute flags associated with files or folders. Callers are
-        /// responsible for managing any native resources, such as icon handles, returned in this structure. Field
-        /// values may be populated differently depending on the flags and parameters used with the corresponding Shell
-        /// API call.</remarks>
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-        private struct SHFILEINFO
-        {
-            /// <summary>
-            /// Specifies a handle to an icon associated with the object.
-            /// </summary>
-            /// <remarks>The value typically represents a native icon handle obtained from the
-            /// operating system. The caller is responsible for managing the lifetime of the handle, including releasing
-            /// any associated resources if required by the platform.</remarks>
-            public nint hIcon;
-
-            /// <summary>
-            /// Specifies the zero-based index of the icon associated with the item.
-            /// </summary>
-            public int iIcon;
-
-            /// <summary>
-            /// Specifies the file or object attributes as a bitmask value.
-            /// </summary>
-            /// <remarks>The value typically represents a combination of attribute flags, such as
-            /// read-only, hidden, or system, depending on the context in which it is used. Refer to the relevant API
-            /// documentation for the meaning of each bit.</remarks>
-            public uint dwAttributes;
-
-            /// <summary>
-            /// Specifies the display name associated with the item, typically used for user-friendly identification in
-            /// the user interface.
-            /// </summary>
-            /// <remarks>The display name is limited to 260 characters, including the null terminator.
-            /// This field is commonly used in interop scenarios where a fixed-length string buffer is required, such as
-            /// when interacting with native Windows APIs.</remarks>
-            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
-            public string szDisplayName;
-
-            /// <summary>
-            /// Specifies the type name as a fixed-length string for interoperation with unmanaged code.
-            /// </summary>
-            /// <remarks>This field is intended for use in platform invocation scenarios where a
-            /// fixed-size character buffer is required. The string is marshaled as a Unicode string with a maximum
-            /// length of 80 characters, including the null terminator. If the assigned value exceeds this length, it
-            /// will be truncated when marshaled to unmanaged code.</remarks>
-            [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 80)]
-            public string szTypeName;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct BY_HANDLE_FILE_INFORMATION
-        {
-            public uint dwFileAttributes;
-            public FILETIME ftCreationTime;
-            public FILETIME ftLastAccessTime;
-            public FILETIME ftLastWriteTime;
-            public uint dwVolumeSerialNumber;
-            public uint nFileSizeHigh;
-            public uint nFileSizeLow;
-            public uint nNumberOfLinks;
-            public uint nFileIndexHigh;
-            public uint nFileIndexLow;
-        }
-
-        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-        private struct REPARSE_DATA_BUFFER
-        {
-            public uint ReparseTag;
-            public ushort ReparseDataLength;
-            public ushort Reserved;
-            public ushort SubstituteNameOffset;
-            public ushort SubstituteNameLength;
-            public ushort PrintNameOffset;
-            public ushort PrintNameLength;
-            public uint Flags;
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8184)]
-            public byte[] PathBuffer;
-        }
-
         private const uint GENERIC_READ = 0x80000000;
         private const uint FILE_SHARE_READ = 0x00000001;
         private const uint OPEN_EXISTING = 3;
@@ -207,23 +34,44 @@ namespace Rheo.Storage.Information
         /// Retrieves information about a file or folder, such as its icon, display name, and type, from the Windows
         /// Shell.
         /// </summary>
-        /// <remarks>This method is a P/Invoke signature for the native SHGetFileInfo function in
-        /// shell32.dll. The caller is responsible for managing any resources, such as icon handles, returned by this
-        /// method. For more information about valid flags and usage, see the Windows API documentation for
+        /// <remarks>This method is a platform invocation of the Windows Shell SHGetFileInfo function and
+        /// is supported only on Windows. The meaning of the return value and the contents of the <paramref
+        /// name="psfi"/> structure depend on the combination of flags specified in <paramref name="uFlags"/>. Callers
+        /// are responsible for managing any resources returned, such as destroying icon handles when no longer needed.
+        /// For more information about valid flags and usage, see the Windows API documentation for
         /// SHGetFileInfo.</remarks>
-        /// <param name="pszPath">The path to the file or folder for which information is to be retrieved. Can be null if certain flags are
-        /// specified in <paramref name="uFlags"/>.</param>
-        /// <param name="dwFileAttributes">The file attribute flags to use when determining the type of the file or folder. Used in combination with
-        /// <paramref name="pszPath"/> to specify the attributes if the file does not exist.</param>
-        /// <param name="psfi">When this method returns, contains a <see cref="SHFILEINFO"/> structure that receives the file information.</param>
-        /// <param name="cbFileInfo">The size, in bytes, of the <see cref="SHFILEINFO"/> structure pointed to by <paramref name="psfi"/>.</param>
-        /// <param name="uFlags">A combination of flags that specify what information to retrieve about the file or folder, such as icon,
-        /// display name, or type name.</param>
-        /// <returns>A handle to the icon specified in the <paramref name="uFlags"/> parameter if successful; otherwise, zero.</returns>
-        [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
-#pragma warning disable SYSLIB1054
-        private static extern nint SHGetFileInfo(string pszPath, uint dwFileAttributes, out SHFILEINFO psfi, uint cbFileInfo, uint uFlags);
-#pragma warning restore SYSLIB1054
+        /// <param name="pszPath">The path to the file or folder for which to retrieve information. This can be a fully qualified path or,
+        /// depending on the flags specified in <paramref name="uFlags"/>, a special folder identifier. Can be <see
+        /// langword="null"/> if <paramref name="uFlags"/> specifies a value that does not require a path.</param>
+        /// <param name="dwFileAttributes">The file attribute flags to use when retrieving information. These are typically standard file attribute
+        /// constants (such as FILE_ATTRIBUTE_DIRECTORY). If <paramref name="uFlags"/> includes the
+        /// SHGFI_USEFILEATTRIBUTES flag, this parameter specifies the attributes to use; otherwise, it is ignored.</param>
+        /// <param name="psfi">When this method returns, contains a <see cref="SHFILEINFO"/> structure that receives the file information
+        /// retrieved by the function.</param>
+        /// <param name="cbFileInfo">The size, in bytes, of the <see cref="SHFILEINFO"/> structure pointed to by <paramref name="psfi"/>. This
+        /// value must be set to <c>sizeof(SHFILEINFO)</c>.</param>
+        /// <param name="uFlags">A combination of SHGFI_* flags that specify which file information to retrieve. These flags control the type
+        /// of information returned, such as icons, display names, or type names.</param>
+        /// <returns>If successful, returns a nonzero value that depends on the flags specified in <paramref name="uFlags"/> (for
+        /// example, a handle to an icon or a system image list index). Returns zero if the function fails.</returns>
+        [SupportedOSPlatform("windows")]
+        [LibraryImport("shell32.dll", EntryPoint = "SHGetFileInfoW", StringMarshalling = StringMarshalling.Utf16)]
+        private static partial nint SHGetFileInfo(string pszPath, uint dwFileAttributes, out SHFILEINFO psfi, uint cbFileInfo, uint uFlags);
+
+        /// <summary>
+        /// Destroys an icon and frees any associated system resources.
+        /// </summary>
+        /// <remarks>Call this method to release system resources when an icon is no longer needed. After
+        /// calling this method, the icon handle is no longer valid and should not be used. This method is supported
+        /// only on Windows platforms.</remarks>
+        /// <param name="hIcon">A handle to the icon to be destroyed. This handle must have been obtained from a previous call to a function
+        /// that creates or loads icons. Passing an invalid or already destroyed handle may result in undefined
+        /// behavior.</param>
+        /// <returns>true if the function succeeds; otherwise, false.</returns>
+        [SupportedOSPlatform("windows")]
+        [LibraryImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        public static partial bool DestroyIcon(nint hIcon);
 
         /// <summary>
         /// Creates or opens a file or I/O device and returns a handle that can be used to access it. This method
@@ -249,8 +97,10 @@ namespace Rheo.Storage.Information
         /// <param name="hTemplateFile">A handle to a template file with the desired attributes to copy to the new file, or zero if not used. Only
         /// used when creating a new file.</param>
         /// <returns>A handle to the created or opened file or device. Returns an invalid handle value if the operation fails.</returns>
+        // https://learn.microsoft.com/en-us/dotnet/api/microsoft.win32.safehandles.safefilehandle?view=net-9.0
+        [SupportedOSPlatform("windows")]
         [LibraryImport("kernel32.dll", EntryPoint = "CreateFileW", SetLastError = true, StringMarshalling = StringMarshalling.Utf16)]
-        private static partial nint CreateFile(string lpFileName, uint dwDesiredAccess, uint dwShareMode, nint lpSecurityAttributes, uint dwCreationDisposition, uint dwFlagsAndAttributes, nint hTemplateFile);
+        private static partial SafeFileHandle CreateFile(string lpFileName, uint dwDesiredAccess, uint dwShareMode, nint lpSecurityAttributes, uint dwCreationDisposition, uint dwFlagsAndAttributes, nint hTemplateFile);
 
         /// <summary>
         /// Retrieves information about the specified file using its handle.
@@ -263,23 +113,12 @@ namespace Rheo.Storage.Information
         /// <param name="lpFileInformation">When this method returns, contains a BY_HANDLE_FILE_INFORMATION structure that receives the file
         /// information.</param>
         /// <returns>true if the function succeeds; otherwise, false.</returns>
+        [SupportedOSPlatform("windows")]
         [DllImport("kernel32.dll", SetLastError = true)]
-#pragma warning disable SYSLIB1054
-        private static extern bool GetFileInformationByHandle(nint hFile, out BY_HANDLE_FILE_INFORMATION lpFileInformation);
-#pragma warning restore SYSLIB1054
-
-        /// <summary>
-        /// Closes an open object handle, releasing the associated system resources.
-        /// </summary>
-        /// <remarks>If the method returns false, call Marshal.GetLastWin32Error to retrieve the error
-        /// code. Closing a handle that is already closed or invalid may result in an error. After a handle is closed,
-        /// it must not be used in subsequent API calls.</remarks>
-        /// <param name="hObject">A handle to an open object, such as a file, process, thread, or other system resource. The handle must have
-        /// been obtained from a Windows API call that returns a handle.</param>
-        /// <returns>true if the handle was closed successfully; otherwise, false.</returns>
-        [LibraryImport("kernel32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool CloseHandle(nint hObject);
+#pragma warning disable SYSLIB1054
+        private static extern bool GetFileInformationByHandle(SafeFileHandle hFile, out BY_HANDLE_FILE_INFORMATION lpFileInformation);
+#pragma warning restore SYSLIB1054
 
         /// <summary>
         /// Sends a control code directly to a specified device driver, causing the corresponding device to perform an
@@ -303,9 +142,11 @@ namespace Rheo.Storage.Information
         /// <param name="lpOverlapped">A pointer to an OVERLAPPED structure for asynchronous operations, or <see langword="null"/> for synchronous
         /// operation.</param>
         /// <returns>true if the operation succeeds; otherwise, false.</returns>
+        [SupportedOSPlatform("windows")]
         [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        [return: MarshalAs(UnmanagedType.Bool)]
 #pragma warning disable SYSLIB1054
-        private static extern bool DeviceIoControl(nint hDevice, uint dwIoControlCode, nint lpInBuffer, uint nInBufferSize, out REPARSE_DATA_BUFFER lpOutBuffer, uint nOutBufferSize, out uint lpBytesReturned, nint lpOverlapped);
+        private static extern bool DeviceIoControl(SafeFileHandle hDevice, uint dwIoControlCode, nint lpInBuffer, uint nInBufferSize, out REPARSE_DATA_BUFFER lpOutBuffer, uint nOutBufferSize, out uint lpBytesReturned, nint lpOverlapped);
 #pragma warning restore SYSLIB1054
 
         /// <summary>
@@ -331,9 +172,10 @@ namespace Rheo.Storage.Information
         /// <param name="ppSecurityDescriptor">Receives a pointer to the security descriptor structure for the object. The caller is responsible for
         /// freeing this memory using the appropriate API.</param>
         /// <returns>true if the security information was retrieved successfully; otherwise, false.</returns>
+        [SupportedOSPlatform("windows")]
         [LibraryImport("advapi32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
-        private static partial bool GetSecurityInfo(nint handle, uint objectType, uint securityInfo, out nint ppsidOwner, out nint ppsidGroup, out nint ppDacl, out nint ppSacl, out nint ppSecurityDescriptor);
+        private static partial bool GetSecurityInfo(SafeFileHandle handle, uint objectType, uint securityInfo, out nint ppsidOwner, out nint ppsidGroup, out nint ppDacl, out nint ppSacl, out nint ppSecurityDescriptor);
 
         /// <summary>
         /// Converts a security identifier (SID) to its string representation.
@@ -345,6 +187,7 @@ namespace Rheo.Storage.Information
         /// <param name="pStringSid">When this method returns, contains a pointer to a null-terminated Unicode string that represents the SID.
         /// The caller is responsible for freeing this memory using LocalFree.</param>
         /// <returns>true if the conversion succeeds; otherwise, false.</returns>
+        [SupportedOSPlatform("windows")]
         [LibraryImport("advapi32.dll", EntryPoint = "ConvertSidToStringSidW", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static partial bool ConvertSidToStringSid(nint pSid, out nint pStringSid);
@@ -359,6 +202,7 @@ namespace Rheo.Storage.Information
         /// local memory allocation function and must not be null.</param>
         /// <returns>If the function succeeds, the return value is zero. If the function fails, the return value is equal to the
         /// input handle.</returns>
+        [SupportedOSPlatform("windows")]
         [LibraryImport("kernel32.dll", EntryPoint = "LocalFreeW")]
         private static partial nint LocalFree(nint hMem);
 
@@ -371,6 +215,7 @@ namespace Rheo.Storage.Information
         /// <param name="absolutePath">The absolute path to the file or directory. Must exist.</param>
         /// <returns>A <see cref="WindowsStorageInfo"/> structure containing comprehensive file information.</returns>
         /// <exception cref="Win32Exception">Thrown if the file information cannot be retrieved.</exception>
+        [SupportedOSPlatform("windows")]
         internal static WindowsStorageInfo GetWindowsFileInfo(string absolutePath)
         {
             var info = new WindowsStorageInfo();
@@ -378,62 +223,67 @@ namespace Rheo.Storage.Information
             // Get Shell information (icon, display name, type name)
             SHGetFileInfo(absolutePath, 0, out SHFILEINFO shinfo, (uint)Marshal.SizeOf<SHFILEINFO>(), 
                 (uint)(SHGFI.Icon | SHGFI.DisplayName | SHGFI.TypeName | SHGFI.Attributes));
-            
-            info.IconHandle = shinfo.hIcon;
-            info.DisplayName = shinfo.szDisplayName;
-            info.TypeName = shinfo.szTypeName;
 
-            // Get detailed file information
-            nint fileHandle = CreateFile(absolutePath, GENERIC_READ, FILE_SHARE_READ, nint.Zero, OPEN_EXISTING, 
-                FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nint.Zero);
-
-            if (fileHandle == new nint(-1))
+            info.Icon = Icon.FromHandle(shinfo.hIcon);	// Load the icon from an HICON handle
+            unsafe
             {
-                int errorCode = Marshal.GetLastWin32Error();
+                info.DisplayName = shinfo.szDisplayName != null
+                    ? new string(shinfo.szDisplayName)
+                    : string.Empty;
+                info.TypeName = shinfo.szTypeName != null
+                    ? new string(shinfo.szTypeName)
+                    : string.Empty;
+            }
+
+            // Always destroy the icon handle if SHGFI_ICON was used
+            if (shinfo.hIcon != IntPtr.Zero)
+            {
+                DestroyIcon(shinfo.hIcon);
+            }
+
+            // Get detailed file information - NOW WITH AUTOMATIC DISPOSAL
+            using SafeFileHandle fileHandle = CreateFile(absolutePath, GENERIC_READ, FILE_SHARE_READ, 
+                nint.Zero, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nint.Zero);
+
+            if (fileHandle.IsInvalid)
+            {
+                int errorCode = Marshal.GetLastPInvokeError();
                 throw new Win32Exception(errorCode, $"Failed to open file handle for '{absolutePath}'.");
             }
 
-            try
+            // Get file information by handle
+            if (!GetFileInformationByHandle(fileHandle, out BY_HANDLE_FILE_INFORMATION fileInfo))
             {
-                // Get file information by handle
-                if (!GetFileInformationByHandle(fileHandle, out BY_HANDLE_FILE_INFORMATION fileInfo))
-                {
-                    int errorCode = Marshal.GetLastWin32Error();
-                    throw new Win32Exception(errorCode, $"Failed to get file information for '{absolutePath}'.");
-                }
-
-                info.Attributes = (FileAttributes)fileInfo.dwFileAttributes;
-                info.Size = ((ulong)fileInfo.nFileSizeHigh << 32) | fileInfo.nFileSizeLow;
-                info.CreationTime = FileTimeToDateTime(fileInfo.ftCreationTime);
-                info.LastAccessTime = FileTimeToDateTime(fileInfo.ftLastAccessTime);
-                info.LastWriteTime = FileTimeToDateTime(fileInfo.ftLastWriteTime);
-                info.VolumeSerialNumber = fileInfo.dwVolumeSerialNumber;
-                info.HardLinkCount = fileInfo.nNumberOfLinks;
-                info.FileIndex = ((ulong)fileInfo.nFileIndexHigh << 32) | fileInfo.nFileIndexLow;
-
-                // Get owner SID
-                if (GetSecurityInfo(fileHandle, SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION, 
-                    out nint pOwnerSid, out _, out _, out _, out nint pSecurityDescriptor))
-                {
-                    if (ConvertSidToStringSid(pOwnerSid, out nint pStringSid))
-                    {
-                        info.OwnerSid = Marshal.PtrToStringUni(pStringSid);
-                        LocalFree(pStringSid);
-                    }
-                    LocalFree(pSecurityDescriptor);
-                }
-
-                // Get reparse point target if applicable
-                if ((fileInfo.dwFileAttributes & (uint)FileAttributes.ReparsePoint) != 0)
-                {
-                    info.ReparseTarget = GetReparsePointTarget(fileHandle);
-                }
-            }
-            finally
-            {
-                CloseHandle(fileHandle);
+                int errorCode = Marshal.GetLastPInvokeError();
+                throw new Win32Exception(errorCode, $"Failed to get file information for '{absolutePath}'.");
             }
 
+            info.Attributes = (FileAttributes)fileInfo.dwFileAttributes;
+            info.Size = ((ulong)fileInfo.nFileSizeHigh << 32) | fileInfo.nFileSizeLow;
+            info.CreationTime = FileTimeToDateTime(fileInfo.ftCreationTime);
+            info.LastAccessTime = FileTimeToDateTime(fileInfo.ftLastAccessTime);
+            info.LastWriteTime = FileTimeToDateTime(fileInfo.ftLastWriteTime);
+            info.VolumeSerialNumber = fileInfo.dwVolumeSerialNumber;
+            info.HardLinkCount = fileInfo.nNumberOfLinks;
+            info.FileIndex = ((ulong)fileInfo.nFileIndexHigh << 32) | fileInfo.nFileIndexLow;
+
+            // Get owner SID
+            if (GetSecurityInfo(fileHandle, SE_FILE_OBJECT, OWNER_SECURITY_INFORMATION, 
+                out nint pOwnerSid, out _, out _, out _, out nint pSecurityDescriptor))
+            {
+                if (ConvertSidToStringSid(pOwnerSid, out nint pStringSid))
+                {
+                    info.OwnerSid = Marshal.PtrToStringUni(pStringSid);
+                    LocalFree(pStringSid);
+                }
+                LocalFree(pSecurityDescriptor);
+            }
+
+            // Get reparse point target if applicable
+            if ((fileInfo.dwFileAttributes & (uint)FileAttributes.ReparsePoint) != 0)
+            {
+                info.ReparseTarget = GetReparsePointTarget(fileHandle);
+            }
             return info;
         }
 
@@ -443,7 +293,8 @@ namespace Rheo.Storage.Information
             return DateTime.FromFileTimeUtc(fileTimeValue);
         }
 
-        private static string? GetReparsePointTarget(nint fileHandle)
+        [SupportedOSPlatform("windows")]
+        private static string? GetReparsePointTarget(SafeFileHandle fileHandle)
         {
             if (!DeviceIoControl(fileHandle, FSCTL_GET_REPARSE_POINT, nint.Zero, 0, 
                 out REPARSE_DATA_BUFFER reparseData, (uint)Marshal.SizeOf<REPARSE_DATA_BUFFER>(), out _, nint.Zero))
@@ -464,32 +315,12 @@ namespace Rheo.Storage.Information
         #endregion
 
         #region Linux Implementation
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct LinuxStat
-        {
-            public ulong st_dev;
-            public ulong st_ino;
-            public uint st_mode;
-            public ulong st_nlink;
-            public uint st_uid;
-            public uint st_gid;
-            public ulong st_rdev;
-            public long st_size;
-            public long st_blksize;
-            public long st_blocks;
-            public long st_atim_sec;
-            public long st_atim_nsec;
-            public long st_mtim_sec;
-            public long st_mtim_nsec;
-            public long st_ctim_sec;
-            public long st_ctim_nsec;
-        }
-
 #pragma warning disable SYSLIB1054
+        [SupportedOSPlatform("linux")]
         [DllImport("libc", SetLastError = true, CharSet = CharSet.Unicode)]
         private static extern int lstat(string pathname, ref LinuxStat stat_buf);
 
+        [SupportedOSPlatform("linux")]
         [DllImport("libc", SetLastError = true, CharSet = CharSet.Unicode)]
         private static extern int readlink(string pathname, byte[] buf, int bufsiz);
 #pragma warning restore SYSLIB1054
@@ -503,6 +334,7 @@ namespace Rheo.Storage.Information
         /// <returns>A <see cref="UnixStorageInfo"/> object containing the file's attributes, ownership, size, timestamps, and
         /// symbolic link target information if applicable.</returns>
         /// <exception cref="Win32Exception">Thrown when the file attributes cannot be retrieved.</exception>
+        [SupportedOSPlatform("linux")]
         internal static UnixStorageInfo GetLinuxFileInfo(string absolutePath)
         {
             var info = new UnixStorageInfo();
@@ -542,42 +374,12 @@ namespace Rheo.Storage.Information
         #endregion
 
         #region macOS Implementation
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct MacStat
-        {
-            public int st_dev;           // ID of device containing file
-            public ushort st_mode;       // File type and mode
-            public ushort st_nlink;      // Number of hard links
-            public ulong st_ino;         // File serial number
-            public uint st_uid;         // User ID of the file
-            public uint st_gid;         // Group ID of the file
-            public int st_rdev;          // Device ID
-            public Timespec st_atimespec; // Time of last access
-            public Timespec st_mtimespec; // Time of last data modification
-            public Timespec st_ctimespec; // Time of last status change
-            public Timespec st_birthtimespec; // Time of file creation
-            public long st_size;         // File size, in bytes
-            public long st_blocks;       // Blocks allocated for file
-            public int st_blksize;       // Optimal blocksize for I/O
-            public uint st_flags;       // User defined flags for file
-            public uint st_gen;         // File generation number
-            public int st_lspare;
-            public long st_qspare1;
-            public long st_qspare2;
-        }
-
-        [StructLayout(LayoutKind.Sequential)]
-        private struct Timespec
-        {
-            public long tv_sec;   // seconds
-            public long tv_nsec;  // nanoseconds
-        }
-
 #pragma warning disable SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time
+        [SupportedOSPlatform("macos")]
         [DllImport("libc", SetLastError = true, EntryPoint = "stat$INODE64", CharSet = CharSet.Unicode)]
         private static extern int mac_stat(string path, ref MacStat buf);
 
+        [SupportedOSPlatform("macos")]
         [DllImport("libc", SetLastError = true, EntryPoint = "lstat$INODE64", CharSet = CharSet.Unicode)]
         private static extern int mac_lstat(string path, ref MacStat buf);
 #pragma warning restore SYSLIB1054
@@ -590,6 +392,7 @@ namespace Rheo.Storage.Information
         /// <param name="absolutePath">The absolute path of the file or directory. Must exist.</param>
         /// <returns>A <see cref="UnixStorageInfo"/> object containing the file's attributes, ownership, size, and timestamps.</returns>
         /// <exception cref="Win32Exception">Thrown when the file information cannot be retrieved.</exception>
+        [SupportedOSPlatform("macos")]
         internal static UnixStorageInfo GetMacFileInfo(string absolutePath)
         {
             var info = new UnixStorageInfo();
