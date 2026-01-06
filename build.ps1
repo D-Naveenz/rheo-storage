@@ -88,8 +88,7 @@ try {
     }
     Write-Host "  ✓ dotnet CLI: $dotnetVersion" -ForegroundColor Green
 } catch {
-    Write-Error ".NET SDK not found. Please install the .NET SDK from https://dotnet.microsoft.com/download"
-    exit 1
+    throw ".NET SDK not found. Please install the .NET SDK from https://dotnet.microsoft.com/download"
 }
 
 # Extract target framework from project file
@@ -224,8 +223,7 @@ Write-Host ""
 # Find the generated package
 $PackageFiles = @(Get-ChildItem -Path $ResolvedOutputPath -Filter "*.nupkg" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending)
 if ($PackageFiles.Count -eq 0) {
-    Write-Error "No .nupkg file found in $ResolvedOutputPath"
-    exit 1
+    throw "No .nupkg file found in $ResolvedOutputPath"
 }
 
 $PackageFile = $PackageFiles[0]
