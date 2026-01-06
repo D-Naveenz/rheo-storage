@@ -70,6 +70,76 @@ Write-Host "=====================================" -ForegroundColor Cyan
 Write-Host "  Rheo.Storage NuGet Build & Pack   " -ForegroundColor Cyan
 Write-Host "=====================================" -ForegroundColor Cyan
 Write-Host ""
+
+# Step 0: Verify build tools and target framework
+Write-Host "[0/$(if ($SkipTests) {3} else {4})] Verifying build tools..." -ForegroundColor Yellow
+
+# Check if dotnet CLI is available
+try {
+    $dotnetVersion = dotnet --version 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        throw "dotnet CLI not found"
+    }
+    Write-Host "  ✓ dotnet CLI: $dotnetVersion" -ForegroundColor Green
+} catch {
+    Write-Error ".NET SDK not found. Please install the .NET SDK from https://dotnet.microsoft.com/download"
+    exit 1
+}
+
+# Extract target framework from project file
+try {
+    [xml]$projectXml = Get-Content $StorageProject
+    $targetFramework = $projectXml.Project.PropertyGroup.TargetFramework
+    
+    if ([string]::IsNullOrWhiteSpace($targetFramework)) {
+        throw "TargetFramework not found in project file"
+    }
+    
+    # Parse framework version (e.g., "net10.0" -> "10.0")
+    if ($targetFramework -match '^net(\d+\.\d+)$') {
+        $requiredVersion = $Matches[1]
+        Write-Host "  Required: .NET $requiredVersion ($targetFramework)" -ForegroundColor Cyan
+    } else {
+        Write-Warning "  Unable to parse framework version from: $targetFramework"
+        $requiredVersion = $null
+    }
+} catch {
+    Write-Warning "  Could not read target framework from project file: $_"
+    $requiredVersion = $null
+}
+
+# Check if required .NET SDK is installed
+if ($requiredVersion) {
+    try {
+        $installedSdks = dotnet --list-sdks 2>$null | ForEach-Object {
+            if ($_ -match '^(\d+\.\d+\.\d+)') {
+                $Matches[1]
+            }
+        }
+        
+        $majorMinor = $requiredVersion
+        $sdkFound = $installedSdks | Where-Object { $_ -match "^$majorMinor" } | Select-Object -First 1
+        
+        if ($sdkFound) {
+            Write-Host "  ✓ .NET SDK $sdkFound installed" -ForegroundColor Green
+        } else {
+            Write-Host ""
+            Write-Warning ".NET $requiredVersion SDK not found!"
+            Write-Host "Installed SDKs:" -ForegroundColor Yellow
+            dotnet --list-sdks
+            Write-Host ""
+            $response = Read-Host "Do you want to continue anyway? (y/n)"
+            if ($response -notmatch '^[Yy]') {
+                Write-Host "Build cancelled. Please install .NET $requiredVersion SDK from https://dotnet.microsoft.com/download" -ForegroundColor Yellow
+                exit 1
+            }
+        }
+    } catch {
+        Write-Warning "  Could not verify SDK installation: $_"
+    }
+}
+
+Write-Host ""
 Write-Host "Configuration: $Configuration" -ForegroundColor Cyan
 Write-Host "Output Path:   $ResolvedOutputPath" -ForegroundColor Cyan
 Write-Host ""
