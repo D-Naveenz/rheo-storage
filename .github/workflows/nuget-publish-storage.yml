@@ -23,20 +23,8 @@ jobs:
       with:
         dotnet-version: 10.0.x
 
-    - name: Create API key file
-      shell: pwsh
-      run: |
-        $apiKey = "${{ secrets.NUGET_API_KEY }}"
-        Set-Content -Path "nuget-api-key.secret.txt" -Value $apiKey -NoNewline
-
     - name: Build, test, pack, and publish NuGet package artifact
       shell: pwsh
-      run: .\build.ps1 -Publish
-
-    - name: Cleanup API key file
-      if: always()
-      shell: pwsh
-      run: |
-        if (Test-Path "nuget-api-key.secret.txt") {
-          Remove-Item "nuget-api-key.secret.txt" -Force
-        }
+      env:
+        NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+      run: .\build.ps1 -Publish -ApiKey $env:NUGET_API_KEY
