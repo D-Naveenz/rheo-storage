@@ -32,3 +32,11 @@ jobs:
     - name: Build, test, pack, and publish NuGet package artifact
       shell: pwsh
       run: .\build.ps1 -Publish
+
+    - name: Cleanup API key file
+      if: always()
+      shell: pwsh
+      run: |
+        if (Test-Path "nuget-api-key.secret.txt") {
+          Remove-Item "nuget-api-key.secret.txt" -Force
+        }
