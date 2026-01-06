@@ -23,9 +23,9 @@
     Output path for NuGet packages (default: ./nupkg)
 
 .EXAMPLE
-    .\nuget-build.ps1
-    .\nuget-build.ps1 -Configuration Debug -SkipTests
-    .\nuget-build.ps1 -Publish
+    .\build.ps1
+    .\build.ps1 -Configuration Debug -SkipTests
+    .\build.ps1 -Publish
 #>
 
 [CmdletBinding()]
@@ -54,8 +54,6 @@ $ErrorActionPreference = 'Stop'
 $ScriptRoot = $PSScriptRoot
 
 # Project paths
-$SolutionFile = Join-Path $ScriptRoot 'Rheo.sln'
-$DefinitionsBuilderProject = Join-Path $ScriptRoot 'Rheo.Storage.DefinitionsBuilder\Rheo.Storage.DefinitionsBuilder.csproj'
 $StorageProject = Join-Path $ScriptRoot 'Rheo.Storage\Rheo.Storage.csproj'
 $TestProject = Join-Path $ScriptRoot 'Rheo.Storage.Test\Rheo.Storage.Test.csproj'
 
@@ -72,7 +70,7 @@ Write-Host "=====================================" -ForegroundColor Cyan
 Write-Host ""
 
 # Step 0: Verify build tools and target framework
-Write-Host "[0/$(if ($SkipTests) {3} else {4})] Verifying build tools..." -ForegroundColor Yellow
+Write-Host "Verifying build tools..." -ForegroundColor Yellow
 
 # Check if dotnet CLI is available
 try {
@@ -161,42 +159,42 @@ Write-Host ""
 
 # Step 2: Build and run tests (unless skipped)
 if (-not $SkipTests) {
-    Write-Host "[2/4] Building Rheo.Storage.Test ($Configuration)..." -ForegroundColor Yellow
+    Write-Host "[2/3] Building and running tests ($Configuration)..." -ForegroundColor Yellow
+    Write-Host "  Building test project..." -ForegroundColor Cyan
     try {
         dotnet build $TestProject --configuration $Configuration
         if ($LASTEXITCODE -ne 0) {
             throw "dotnet build failed with exit code $LASTEXITCODE"
         }
-        Write-Host "✓ Test project built successfully" -ForegroundColor Green
+        Write-Host "  ✓ Test project built successfully" -ForegroundColor Green
     } catch {
         Write-Error "Failed to build test project: $_"
         exit 1
     }
 
     Write-Host ""
-
-    Write-Host "[3/4] Running tests..." -ForegroundColor Yellow
+    Write-Host "  Running tests..." -ForegroundColor Cyan
     try {
         dotnet test $TestProject --configuration $Configuration --no-build --verbosity normal
         if ($LASTEXITCODE -ne 0) {
             throw "Tests failed with exit code $LASTEXITCODE"
         }
-        Write-Host "✓ All tests passed" -ForegroundColor Green
+        Write-Host "  ✓ All tests passed" -ForegroundColor Green
     } catch {
         Write-Error "Tests failed: $_"
         exit 1
     }
 
     Write-Host ""
-    $PackStep = 4
-} else {
-    Write-Host "[2/3] Skipping tests" -ForegroundColor Yellow
-    Write-Host ""
     $PackStep = 3
+} else {
+    Write-Host "Skipping tests" -ForegroundColor Yellow
+    Write-Host ""
+    $PackStep = 2
 }
 
 # Step 3/4: Pack NuGet package
-Write-Host "[$PackStep/$(if ($SkipTests) {3} else {4})] Packing NuGet package..." -ForegroundColor Yellow
+Write-Host "[$PackStep/$(if ($SkipTests) {2} else {3})] Packing NuGet package..." -ForegroundColor Yellow
 
 # Ensure output directory exists
 if (-not (Test-Path $ResolvedOutputPath)) {
@@ -254,7 +252,9 @@ if ($Publish) {
 
     Write-Host "Publishing $($PackageFile.Name)..." -ForegroundColor Yellow
     try {
-        dotnet nuget push $PackageFile.FullName --api-key $ApiKey --source https://api.nuget.org/v3/index.json
+        # Use environment variable instead of passing API key on the command line
+        $env:NUGET_API_KEY = $ApiKey
+        dotnet nuget push $PackageFile.FullName --source https://api.nuget.org/v3/index.json --api-key $env:NUGET_API_KEY
         if ($LASTEXITCODE -ne 0) {
             throw "dotnet nuget push failed with exit code $LASTEXITCODE"
         }
@@ -262,6 +262,9 @@ if ($Publish) {
     } catch {
         Write-Error "Failed to publish package: $_"
         exit 1
+    } finally {
+        # Clear the API key from environment
+        Remove-Item Env:\NUGET_API_KEY -ErrorAction SilentlyContinue
     }
 
     Write-Host ""

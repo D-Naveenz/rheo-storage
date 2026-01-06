@@ -13,7 +13,7 @@
     <Description>A modern .NET library for file and directory operations with rich metadata, content-based file analysis, and asynchronous I/O operations.</Description>
     <Version>0.5.4-beta.2</Version>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
-    <PackageTags>definition; extension; types; asynchronous; mime; file-handling; directory-management; magicnumbers; file-analyzing; rheo;</PackageTags>
+    <PackageTags>definition; extension; types; asynchronous; mime; file-handling; directory-management; magic-numbers; file-analysis; rheo;</PackageTags>
     <DocumentationFile>$(MSBuildProjectDirectory)\documentation.xml</DocumentationFile>
   </PropertyGroup>
 
