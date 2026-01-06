@@ -16,6 +16,9 @@
 .PARAMETER Publish
     Publish the package to NuGet.org after packing
 
+.PARAMETER ApiKey
+    NuGet API key for publishing (can be provided directly or via file)
+
 .PARAMETER ApiKeyFile
     Path to file containing NuGet API key (default: nuget-api-key.secret.txt)
 
@@ -26,6 +29,8 @@
     .\build.ps1
     .\build.ps1 -Configuration Debug -SkipTests
     .\build.ps1 -Publish
+    .\build.ps1 -Publish -ApiKeyFile 'path/to/key.txt'
+    .\build.ps1 -Publish -ApiKey 'your-api-key-here'
 #>
 
 [CmdletBinding()]
@@ -39,6 +44,9 @@ param(
 
     [Parameter()]
     [switch]$Publish,
+
+    [Parameter()]
+    [string]$ApiKey,
 
     [Parameter()]
     [string]$ApiKeyFile = 'nuget-api-key.secret.txt',
@@ -80,8 +88,7 @@ try {
     }
     Write-Host "  ✓ dotnet CLI: $dotnetVersion" -ForegroundColor Green
 } catch {
-    Write-Error ".NET SDK not found. Please install the .NET SDK from https://dotnet.microsoft.com/download"
-    exit 1
+    throw ".NET SDK not found. Please install the .NET SDK from https://dotnet.microsoft.com/download"
 }
 
 # Extract target framework from project file
@@ -94,7 +101,7 @@ try {
     }
     
     # Parse framework version (e.g., "net10.0" -> "10.0")
-    if ($targetFramework -match '^net(\d+\.\d+)$') {
+    if ($targetFramework -match '^net([\d.]+)$') {
         $requiredVersion = $Matches[1]
         Write-Host "  Required: .NET $requiredVersion ($targetFramework)" -ForegroundColor Cyan
     } else {
@@ -142,8 +149,11 @@ Write-Host "Configuration: $Configuration" -ForegroundColor Cyan
 Write-Host "Output Path:   $ResolvedOutputPath" -ForegroundColor Cyan
 Write-Host ""
 
+# Calculate total steps for progress display
+$TotalSteps = if ($SkipTests) { 2 } else { 3 }
+
 # Step 1: Build Rheo.Storage
-Write-Host "[1/$(if ($SkipTests) {2} else {3})] Building Rheo.Storage ($Configuration)..." -ForegroundColor Yellow
+Write-Host "[1/$TotalSteps] Building Rheo.Storage ($Configuration)..." -ForegroundColor Yellow
 try {
     dotnet build $StorageProject --configuration $Configuration
     if ($LASTEXITCODE -ne 0) {
@@ -151,15 +161,14 @@ try {
     }
     Write-Host "✓ Rheo.Storage built successfully" -ForegroundColor Green
 } catch {
-    Write-Error "Failed to build Rheo.Storage: $_"
-    exit 1
+    throw "Failed to build Rheo.Storage: $_"
 }
 
 Write-Host ""
 
 # Step 2: Build and run tests (unless skipped)
 if (-not $SkipTests) {
-    Write-Host "[2/3] Building and running tests ($Configuration)..." -ForegroundColor Yellow
+    Write-Host "[2/$TotalSteps] Building and running tests ($Configuration)..." -ForegroundColor Yellow
     Write-Host "  Building test project..." -ForegroundColor Cyan
     try {
         dotnet build $TestProject --configuration $Configuration
@@ -168,8 +177,7 @@ if (-not $SkipTests) {
         }
         Write-Host "  ✓ Test project built successfully" -ForegroundColor Green
     } catch {
-        Write-Error "Failed to build test project: $_"
-        exit 1
+        throw "Failed to build test project: $_"
     }
 
     Write-Host ""
@@ -181,8 +189,7 @@ if (-not $SkipTests) {
         }
         Write-Host "  ✓ All tests passed" -ForegroundColor Green
     } catch {
-        Write-Error "Tests failed: $_"
-        exit 1
+        throw "Tests failed: $_"
     }
 
     Write-Host ""
@@ -194,7 +201,7 @@ if (-not $SkipTests) {
 }
 
 # Step 3/4: Pack NuGet package
-Write-Host "[$PackStep/$(if ($SkipTests) {2} else {3})] Packing NuGet package..." -ForegroundColor Yellow
+Write-Host "[$PackStep/$TotalSteps] Packing NuGet package..." -ForegroundColor Yellow
 
 # Ensure output directory exists
 if (-not (Test-Path $ResolvedOutputPath)) {
@@ -208,8 +215,7 @@ try {
     }
     Write-Host "✓ Package created successfully" -ForegroundColor Green
 } catch {
-    Write-Error "Failed to pack NuGet package: $_"
-    exit 1
+    throw "Failed to pack NuGet package: $_"
 }
 
 Write-Host ""
@@ -217,8 +223,7 @@ Write-Host ""
 # Find the generated package
 $PackageFiles = @(Get-ChildItem -Path $ResolvedOutputPath -Filter "*.nupkg" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending)
 if ($PackageFiles.Count -eq 0) {
-    Write-Error "No .nupkg file found in $ResolvedOutputPath"
-    exit 1
+    throw "No .nupkg file found in $ResolvedOutputPath"
 }
 
 $PackageFile = $PackageFiles[0]
@@ -232,36 +237,43 @@ if ($Publish) {
     Write-Host "=====================================" -ForegroundColor Cyan
     Write-Host ""
 
-    # Read API key
-    $ApiKeyPath = if ([System.IO.Path]::IsPathRooted($ApiKeyFile)) {
-        $ApiKeyFile
+    # Get API key from parameter or file
+    $ResolvedApiKey = $null
+    
+    if (-not [string]::IsNullOrWhiteSpace($ApiKey)) {
+        # Use API key provided as argument
+        $ResolvedApiKey = $ApiKey.Trim()
+        Write-Host "Using API key from command-line argument" -ForegroundColor Cyan
     } else {
-        Join-Path $ScriptRoot $ApiKeyFile
-    }
+        # Read API key from file
+        $ApiKeyPath = if ([System.IO.Path]::IsPathRooted($ApiKeyFile)) {
+            $ApiKeyFile
+        } else {
+            Join-Path $ScriptRoot $ApiKeyFile
+        }
 
-    if (-not (Test-Path $ApiKeyPath)) {
-        Write-Error "API key file not found: $ApiKeyPath"
-        exit 1
-    }
+        if (-not (Test-Path $ApiKeyPath)) {
+            throw "API key not provided and file not found: $ApiKeyPath"
+        }
 
-    $ApiKey = Get-Content -Path $ApiKeyPath -Raw | ForEach-Object { $_.Trim() }
-    if ([string]::IsNullOrWhiteSpace($ApiKey)) {
-        Write-Error "API key file is empty: $ApiKeyPath"
-        exit 1
+        $ResolvedApiKey = Get-Content -Path $ApiKeyPath -Raw | ForEach-Object { $_.Trim() }
+        if ([string]::IsNullOrWhiteSpace($ResolvedApiKey)) {
+            throw "API key file is empty: $ApiKeyPath"
+        }
+        Write-Host "Using API key from file: $ApiKeyPath" -ForegroundColor Cyan
     }
 
     Write-Host "Publishing $($PackageFile.Name)..." -ForegroundColor Yellow
     try {
         # Use environment variable instead of passing API key on the command line
-        $env:NUGET_API_KEY = $ApiKey
+        $env:NUGET_API_KEY = $ResolvedApiKey
         dotnet nuget push $PackageFile.FullName --source https://api.nuget.org/v3/index.json --api-key $env:NUGET_API_KEY
         if ($LASTEXITCODE -ne 0) {
             throw "dotnet nuget push failed with exit code $LASTEXITCODE"
         }
         Write-Host "✓ Package published successfully" -ForegroundColor Green
     } catch {
-        Write-Error "Failed to publish package: $_"
-        exit 1
+        throw "Failed to publish package: $_"
     } finally {
         # Clear the API key from environment
         Remove-Item Env:\NUGET_API_KEY -ErrorAction SilentlyContinue
