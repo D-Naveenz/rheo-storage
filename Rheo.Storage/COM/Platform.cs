@@ -5,18 +5,6 @@ namespace Rheo.Storage.COM
 {
     internal static class Platform
     {
-        /// <summary>
-        /// Retrieves platform-specific storage information for the specified file or directory path.
-        /// </summary>
-        /// <remarks>This method automatically detects the current operating system and returns storage
-        /// information using the appropriate platform-specific implementation. Supported platforms include Windows,
-        /// Linux, and macOS.</remarks>
-        /// <param name="absolutePath">The absolute path to the file or directory for which to obtain storage information. The path must be valid
-        /// and accessible on the current operating system.</param>
-        /// <returns>An object that provides storage information for the specified path, formatted according to the conventions
-        /// of the current operating system.</returns>
-        /// <exception cref="PlatformNotSupportedException">Thrown if the current operating system is not supported.</exception>
-        /// <exception cref="InvalidOperationException">Thrown if storage information cannot be retrieved for the specified path.</exception>
         public static IStorageInfoStruct GetStorageInformation(string absolutePath)
         {
             try

@@ -25,6 +25,7 @@ namespace Rheo.Storage.FileDefinition.Models
         [Key(1)]
         public List<byte[]> Strings { get; set; } = [];
 
+        /// <inheritdoc/>
         public override string ToString()
         {
             return $"Signature: {Patterns.Count} patterns, {Strings.Count} strings";

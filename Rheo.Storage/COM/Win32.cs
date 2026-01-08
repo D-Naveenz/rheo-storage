@@ -99,24 +99,27 @@ namespace Rheo.Storage.COM
         private const uint IO_REPARSE_TAG_SYMLINK = 0xA000000C;
         private const uint FSCTL_GET_REPARSE_POINT = 0x000900A8;
 
-        /// <summary>
-        /// Retrieves comprehensive file information for a file or directory on Windows using native Win32 APIs.
-        /// </summary>
-        /// <remarks>This method provides detailed file metadata including attributes, timestamps, size,
-        /// security information, and Shell-provided display data. Assumes the file exists at the specified path.
-        /// Icon handles must be destroyed using DestroyIcon when no longer needed.</remarks>
-        /// <param name="absolutePath">The absolute path to the file or directory. Must exist.</param>
-        /// <returns>A <see cref="WindowsStorageInfo"/> structure containing comprehensive file information.</returns>
-        /// <exception cref="Win32Exception">Thrown if the file information cannot be retrieved.</exception>
         public static WindowsStorageInfo GetFileInformation(string absolutePath)
         {
             var info = new WindowsStorageInfo();
 
             // Get Shell information (icon, display name, type name)
-            SHGetFileInfo(absolutePath, 0, out SHFILEINFO shinfo, (uint)Marshal.SizeOf<SHFILEINFO>(),
+            nint result = SHGetFileInfo(absolutePath, 0, out SHFILEINFO shinfo, (uint)Marshal.SizeOf<SHFILEINFO>(),
                 (uint)(SHGFI.Icon | SHGFI.DisplayName | SHGFI.TypeName | SHGFI.Attributes));
 
-            info.Icon = Icon.FromHandle(shinfo.hIcon);	// Load the icon from an HICON handle
+            // Check if SHGetFileInfo succeeded
+            if (result == 0)
+            {
+                int errorCode = Marshal.GetLastPInvokeError();
+                throw new Win32Exception(errorCode, $"Failed to retrieve shell information for '{absolutePath}'. Diagnostic code: {errorCode}");
+            }
+
+            // Only load icon if a valid handle was returned
+            if (shinfo.hIcon != nint.Zero)
+            {
+                info.Icon = Icon.FromHandle(shinfo.hIcon);	// Load the icon from an HICON handle
+            }
+
             unsafe
             {
                 info.DisplayName = shinfo.szDisplayName != null
@@ -171,7 +174,7 @@ namespace Rheo.Storage.COM
                 info.ReparseTarget = GetReparsePointTarget(fileHandle);
             }
 
-            // Always destroy the icon handle if SHGFI_ICON was used
+            // Always destroy the icon handle if SHGFI_ICON was used and a valid handle was returned
             if (shinfo.hIcon != nint.Zero)
             {
                 DestroyIcon(shinfo.hIcon);

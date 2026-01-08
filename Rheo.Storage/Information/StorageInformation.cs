@@ -176,7 +176,7 @@ namespace Rheo.Storage.Information
         /// Attempts to retrieve storage information specific to Windows systems.
         /// </summary>
         /// <remarks>This method does not throw exceptions. If the underlying storage information is not
-        /// compatible with Windows or an error occurs, the method returns false and <paramref name="winfo"/> is set to
+        /// compatible with Windows or an error occurs, the method returns false and <paramref name="info"/> is set to
         /// its default value.</remarks>
         /// <param name="info">When this method returns, contains a <see cref="WindowsStorageInfo"/> object with Windows-specific storage
         /// details if available; otherwise, the default value.</param>

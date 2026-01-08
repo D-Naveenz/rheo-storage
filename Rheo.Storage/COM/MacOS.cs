@@ -6,11 +6,10 @@ using System.Runtime.Versioning;
 namespace Rheo.Storage.COM
 {
     [SupportedOSPlatform("macos")]
-    internal static class MacOS
+    internal static partial class MacOS
     {
-        // macOS stat structure from lstat$INODE64() syscall
         [StructLayout(LayoutKind.Sequential)]
-        private struct MacStat
+        private struct Stat
         {
             public int st_dev;                      // Device ID
             public ushort st_mode;                  // File type and mode
@@ -40,20 +39,11 @@ namespace Rheo.Storage.COM
             public long tv_nsec;    // Nanoseconds
         }
 
-        /// <summary>
-        /// Retrieves file attribute information for a file or directory on macOS systems.
-        /// </summary>
-        /// <remarks>This method uses native macOS system calls to obtain file metadata, including
-        /// macOS-specific attributes. Assumes the file exists at the specified path.</remarks>
-        /// <param name="absolutePath">The absolute path of the file or directory. Must exist.</param>
-        /// <returns>A <see cref="UnixStorageInfo"/> object containing the file's attributes, ownership, size, and timestamps.</returns>
-        /// <exception cref="Win32Exception">Thrown when the file information cannot be retrieved.</exception>
         public static UnixStorageInfo GetFileInformation(string absolutePath)
         {
             var info = new UnixStorageInfo();
-            MacStat statBuf = new();
 
-            if (lstat(absolutePath, ref statBuf) != 0)
+            if (lstat(absolutePath, out Stat statBuf) != 0)
             {
                 int errno = Marshal.GetLastWin32Error();
                 throw new Win32Exception(errno, $"Failed to get file info for '{absolutePath}'");
@@ -77,12 +67,21 @@ namespace Rheo.Storage.COM
             return info;
         }
 
-#pragma warning disable SYSLIB1054 // Use 'LibraryImportAttribute' instead of 'DllImportAttribute' to generate P/Invoke marshalling code at compile time
-        [DllImport("libc", SetLastError = true, EntryPoint = "stat$INODE64", CharSet = CharSet.Unicode)]
-        private static extern int stat(string path, ref MacStat buf);
-
-        [DllImport("libc", SetLastError = true, EntryPoint = "lstat$INODE64", CharSet = CharSet.Unicode)]
-        private static extern int lstat(string path, ref MacStat buf);
-#pragma warning restore SYSLIB1054
+        /// <summary>
+        /// Invokes the native lstat function to retrieve file status information for the specified path, without
+        /// following symbolic links.
+        /// </summary>
+        /// <remarks>Unlike stat, lstat does not follow symbolic links. If path refers to a symbolic link,
+        /// information about the link itself is returned, not the target. This method is a platform invoke (P/Invoke)
+        /// wrapper for the native lstat function and is intended for interop scenarios.</remarks>
+        /// <param name="path">The path to the file or symbolic link for which to obtain status information. The path must be a valid,
+        /// null-terminated UTF-8 string.</param>
+        /// <param name="buf">When this method returns, contains a Stat structure with information about the file or symbolic link
+        /// specified by path.</param>
+        /// <returns>Zero if the operation succeeds; otherwise, a nonzero error code is returned and additional error information
+        /// may be available via errno.</returns>
+        // The library name is typically "System" on macOS and iOS, which maps to libSystem.dylib.
+        [LibraryImport("System", SetLastError = true, StringMarshalling = StringMarshalling.Utf8)]
+        private static partial int lstat(string path, out Stat buf);
     }
 }

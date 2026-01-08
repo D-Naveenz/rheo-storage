@@ -6,11 +6,10 @@ using System.Runtime.Versioning;
 namespace Rheo.Storage.COM
 {
     [SupportedOSPlatform("linux")]
-    internal static class Linux
+    internal static partial class Linux
     {
-        // Linux stat structure from lstat() syscall
         [StructLayout(LayoutKind.Sequential)]
-        private struct LinuxStat
+        private struct Stat
         {
             public ulong st_dev;        // Device ID
             public ulong st_ino;        // Inode number
@@ -30,19 +29,10 @@ namespace Rheo.Storage.COM
             public long st_ctim_nsec;   // Status change time (nanoseconds)
         }
 
-        /// <summary>
-        /// Retrieves file attributes and metadata for a specified file or symbolic link on a Linux file system.
-        /// </summary>
-        /// <remarks>This method uses the Linux lstat system call to obtain information about the
-        /// specified file or symbolic link. Assumes the file exists at the specified path.</remarks>
-        /// <param name="absolutePath">The absolute path to the file or symbolic link. Must exist.</param>
-        /// <returns>A <see cref="UnixStorageInfo"/> object containing the file's attributes, ownership, size, timestamps, and
-        /// symbolic link target information if applicable.</returns>
-        /// <exception cref="Win32Exception">Thrown when the file attributes cannot be retrieved.</exception>
         public static UnixStorageInfo GetFileInformation(string absolutePath)
         {
             var info = new UnixStorageInfo();
-            LinuxStat statBuf = new();
+            Stat statBuf = new();
 
             if (lstat(absolutePath, ref statBuf) != 0)
             {
@@ -75,12 +65,35 @@ namespace Rheo.Storage.COM
             return info;
         }
 
-#pragma warning disable SYSLIB1054
-        [DllImport("libc", SetLastError = true, CharSet = CharSet.Unicode)]
-        private static extern int lstat(string pathname, ref LinuxStat stat_buf);
+        /// <summary>
+        /// Retrieves information about the file or symbolic link specified by the given path, without following
+        /// symbolic links.
+        /// </summary>
+        /// <remarks>This method corresponds to the native lstat function in libc. Unlike stat, lstat does
+        /// not follow symbolic links, and instead returns information about the link itself. This method is intended
+        /// for interop scenarios and should be used with care, as improper usage may lead to resource leaks or
+        /// undefined behavior.</remarks>
+        /// <param name="pathname">The path to the file or symbolic link for which to retrieve status information. The path must be valid and
+        /// encoded as UTF-8.</param>
+        /// <param name="stat_buf">When this method returns, contains a structure populated with information about the specified file or
+        /// symbolic link.</param>
+        /// <returns>Zero if the operation succeeds; otherwise, -1. If the operation fails, additional error information can be
+        /// obtained using the system error code.</returns>
+        [LibraryImport("libc", SetLastError = true, StringMarshalling = StringMarshalling.Utf8)]
+        private static partial int lstat(string pathname, ref Stat stat_buf);
 
-        [DllImport("libc", SetLastError = true, CharSet = CharSet.Unicode)]
-        private static extern int readlink(string pathname, byte[] buf, int bufsiz);
-#pragma warning restore SYSLIB1054
+        /// <summary>
+        /// Reads the value of a symbolic link and stores it in the specified buffer.
+        /// </summary>
+        /// <remarks>The buffer is not null-terminated. To obtain the full contents of the symbolic link,
+        /// use the number of bytes returned. If the buffer is too small, the result is truncated. This method sets the
+        /// system error code on failure; use Marshal.GetLastWin32Error to retrieve the error code.</remarks>
+        /// <param name="pathname">The path to the symbolic link to be read. Cannot be null.</param>
+        /// <param name="buf">The buffer that receives the contents of the symbolic link. Must be large enough to hold the link's
+        /// contents.</param>
+        /// <param name="bufsiz">The size of the buffer, in bytes. Must be greater than zero.</param>
+        /// <returns>The number of bytes placed in the buffer on success; otherwise, -1 if an error occurs.</returns>
+        [LibraryImport("libc", SetLastError = true, StringMarshalling = StringMarshalling.Utf8)]
+        private static partial int readlink(string pathname, byte[] buf, int bufsiz);
     }
 }

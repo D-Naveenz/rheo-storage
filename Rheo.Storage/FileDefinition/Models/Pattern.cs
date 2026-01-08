@@ -22,6 +22,7 @@ namespace Rheo.Storage.FileDefinition.Models
         [Key(1)]
         public byte[] Data { get; set; } = [];
 
+        /// <inheritdoc/>
         public override string ToString()
         {
             return $"\"{Encoding.ASCII.GetString(Data)}\" at {Position}";
