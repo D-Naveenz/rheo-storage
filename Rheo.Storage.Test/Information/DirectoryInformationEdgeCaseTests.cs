@@ -285,7 +285,7 @@ namespace Rheo.Storage.Test.Information
 
             // Assert
             Assert.Equal(2048L, dirInfo.Size);
-            Assert.IsType<ulong>(dirInfo.Size);
+            Assert.IsType<long>(dirInfo.Size);
         }
 
         [Fact]
