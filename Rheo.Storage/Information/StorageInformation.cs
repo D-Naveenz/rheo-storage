@@ -66,6 +66,12 @@ namespace Rheo.Storage.Information
             _storageInfoLazy = new Lazy<IStorageInfoStruct>(() => _storageInfoTaskAwaiter.Task.GetAwaiter().GetResult());
         }
 
+        /// <inheritdoc/>
+        public static TInfo Create<TInfo>(string path) where TInfo : IStorageInformation
+        {
+            throw new NotImplementedException();
+        }
+
         #region Properties: Core Identity
         /// <inheritdoc/>
         public string DisplayName

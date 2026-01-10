@@ -5,21 +5,21 @@ namespace Rheo.Storage.Handling
     internal static partial class FileHandling
     {
         /// <summary>
-        /// Copies the specified file to a new location, optionally overwriting an existing file and reporting progress.
+        /// Copies the contents of the specified source file to a new file at the given destination path, optionally
+        /// overwriting an existing file and reporting progress.
         /// </summary>
-        /// <remarks>This method uses synchronous I/O operations. Progress is reported after each successful
-        /// write operation if a progress reporter is provided. The method acquires an exclusive lock on the source file
-        /// for the duration of the copy to ensure thread safety. For better performance on high-speed storage, consider
-        /// using the asynchronous version.</remarks>
-        /// <param name="source">The file to copy. Must not be null and must refer to an existing file.</param>
-        /// <param name="destination">The full path of the destination file. If the file exists and <paramref name="overwrite"/> is <see
-        /// langword="false"/>, the operation will fail.</param>
+        /// <remarks>The copy operation is performed using buffered streams for efficient file transfer.
+        /// Progress is reported after each write if a progress reporter is provided. The method acquires a lock on the
+        /// source file to ensure thread safety during the operation.</remarks>
+        /// <param name="source">The source <see cref="FileObject"/> representing the file to copy. Must not be null.</param>
+        /// <param name="destination">The full path to the destination file. If the file exists and <paramref name="overwrite"/> is <see
+        /// langword="false"/>, an exception is thrown.</param>
         /// <param name="overwrite">A value indicating whether to overwrite the destination file if it already exists. If <see
-        /// langword="false"/>, an exception is thrown if the destination file exists.</param>
-        /// <param name="progress">An optional progress reporter that receives updates about the copy operation, including bytes transferred
-        /// and transfer rate. May be null if progress reporting is not required.</param>
+        /// langword="true"/>, the existing file will be replaced.</param>
+        /// <param name="progress">An optional progress reporter that receives updates on the number of bytes transferred and transfer rate
+        /// during the copy operation. May be null.</param>
         /// <returns>A <see cref="FileObject"/> representing the newly created file at the destination path.</returns>
-        /// <exception cref="InvalidOperationException">Thrown if the copy operation fails due to an I/O error or insufficient permissions.</exception>
+        /// <exception cref="InvalidOperationException">Thrown if the copy operation fails due to I/O errors or insufficient permissions.</exception>
         public static FileObject Copy(
             FileObject source,
             string destination,
@@ -43,38 +43,12 @@ namespace Rheo.Storage.Handling
                     bufferSize,
                     FileOptions.SequentialScan);
 
-                using var destStream = new FileStream(
+                CopyStreamToFile(
+                    sourceStream,
                     destination,
-                    overwrite ? FileMode.Create : FileMode.CreateNew,
-                    FileAccess.Write,
-                    FileShare.None,
+                    overwrite,
                     bufferSize,
-                    FileOptions.SequentialScan);
-
-                var totalBytes = sourceStream.Length;
-                var totalRead = 0L;
-                var stopwatch = Stopwatch.StartNew();
-                var buffer = new byte[bufferSize];
-                int bytesRead;
-
-                while ((bytesRead = sourceStream.Read(buffer, 0, buffer.Length)) > 0)
-                {
-                    destStream.Write(buffer, 0, bytesRead);
-                    totalRead += bytesRead;
-
-                    if (progress != null)
-                    {
-                        // Report progress after each successful write
-                        double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
-                        double bytesPerSecond = elapsedSeconds > 0 ? totalRead / elapsedSeconds : 0;
-                        progress.Report(new StorageProgress
-                        {
-                            TotalBytes = totalBytes,
-                            BytesTransferred = totalRead,
-                            BytesPerSecond = bytesPerSecond
-                        });
-                    }
-                }
+                    progress);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
@@ -120,18 +94,23 @@ namespace Rheo.Storage.Handling
         }
 
         /// <summary>
-        /// Moves the specified file to a new destination, optionally overwriting an existing file.
+        /// Moves the specified file to a new destination path, optionally overwriting an existing file and reporting
+        /// progress.
         /// </summary>
-        /// <remarks>If the source and destination are on the same volume, the move is performed as a fast
-        /// directory entry update. If they are on different volumes, the file is copied and then the source is deleted.
-        /// The source file is disposed after a successful move. The method is thread-safe with respect to the source
-        /// file. Progress updates are reported only if a progress reporter is provided.</remarks>
-        /// <param name="source">The file to move. Must not be null and must refer to an existing file.</param>
-        /// <param name="destination">The full path to the destination file. Cannot be null or empty.</param>
-        /// <param name="overwrite">true to overwrite the destination file if it exists; otherwise, false.</param>
-        /// <param name="progress">An optional progress reporter that receives updates about the move operation. May be null.</param>
-        /// <returns>A <see cref="FileObject"/> representing the file at the new destination.</returns>
-        /// <exception cref="InvalidOperationException">Thrown if the move operation fails due to an I/O error or insufficient permissions.</exception>
+        /// <remarks>If the source and destination are on the same storage volume, the move is performed
+        /// as a fast directory entry update. For cross-volume moves, the file is copied to the destination and the
+        /// source is deleted. The source file is disposed after a successful move. Progress is reported only for the
+        /// final state of the operation.</remarks>
+        /// <param name="source">The file to move. Must not be null and must reference an existing file.</param>
+        /// <param name="destination">The destination path to move the file to. Cannot be null or empty. If the path refers to an existing file
+        /// and <paramref name="overwrite"/> is <see langword="false"/>, the operation will fail.</param>
+        /// <param name="overwrite">Specifies whether to overwrite the destination file if it already exists. Set to <see langword="true"/> to
+        /// overwrite; otherwise, <see langword="false"/>.</param>
+        /// <param name="progress">An optional progress reporter that receives updates about the move operation. May be null if progress
+        /// reporting is not required.</param>
+        /// <returns>A <see cref="FileObject"/> representing the file at the new destination path after the move operation
+        /// completes.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if the move operation fails due to I/O errors or insufficient permissions.</exception>
         public static FileObject Move(
             FileObject source,
             string destination,
@@ -221,7 +200,7 @@ namespace Rheo.Storage.Handling
                 File.Move(source.FullPath, destination, false);
 
                 // Dispose the current FileObject to ensure the stored information are correct
-                source.Dispose();
+                // source.Dispose();
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
@@ -234,6 +213,112 @@ namespace Rheo.Storage.Handling
 
             // FINALIZATION
             return new FileObject(destination);
+        }
+
+        /// <summary>
+        /// Writes the contents of a stream to the specified file, optionally overwriting existing content and
+        /// reporting progress.
+        /// </summary>
+        /// <remarks>This method acquires an exclusive lock on the file for the duration of the write operation
+        /// to ensure thread safety. The source stream is read from its current position (after seeking to the
+        /// beginning). The FileObject is disposed after writing and a new instance is returned with updated metadata.</remarks>
+        /// <param name="source">The FileObject representing the destination file. Must not be null.</param>
+        /// <param name="sourceStream">The stream containing data to write. Must support reading and have a known length. The stream is not
+        /// disposed by this method.</param>
+        /// <param name="overwrite">A value indicating whether to overwrite the file if it already exists. If <see langword="false"/> and
+        /// the file exists, an exception is thrown.</param>
+        /// <param name="progress">An optional progress reporter that receives updates about the write operation. May be null.</param>
+        /// <returns>A <see cref="FileObject"/> representing the updated file after the write operation.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if the write operation fails due to an I/O error or insufficient permissions.</exception>
+        public static FileObject Write(
+            FileObject source,
+            Stream sourceStream,
+            bool overwrite = false,
+            IProgress<StorageProgress>? progress = null)
+        {
+            // INITIALIZATION
+            var _lock = source.GetHandlingLock();
+            var bufferSize = source.GetBufferSize();
+            var destination = source.FullPath;
+
+            // OPERATION
+            _lock.Wait();
+            try
+            {
+                // Ensure we start reading from the beginning
+                sourceStream.Seek(0, SeekOrigin.Begin);
+
+                CopyStreamToFile(
+                    sourceStream,
+                    destination,
+                    overwrite,
+                    bufferSize,
+                    progress);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                throw new InvalidOperationException($"Failed to write to file: {destination}", ex);
+            }
+            finally
+            {
+                _lock.Release();
+            }
+
+            // FINALIZATION
+            source.Dispose();   // Dispose the current FileObject to ensure the stored information are correct
+            return new FileObject(destination);
+        }
+
+        /// <summary>
+        /// Core implementation for copying data from a stream to a file using synchronous I/O.
+        /// </summary>
+        /// <remarks>This internal method implements buffered stream copying for reliable file transfer. The
+        /// method does not acquire locks or manage FileObject lifecycle - callers are responsible for synchronization
+        /// and resource management.</remarks>
+        /// <param name="sourceStream">The source stream to read from. Must support reads and have a known length.</param>
+        /// <param name="destinationPath">The full path to the destination file.</param>
+        /// <param name="overwrite">Whether to overwrite the destination file if it exists.</param>
+        /// <param name="bufferSize">The buffer size to use for reading and writing.</param>
+        /// <param name="progress">Optional progress reporter for tracking the operation.</param>
+        private static void CopyStreamToFile(
+            Stream sourceStream,
+            string destinationPath,
+            bool overwrite,
+            int bufferSize,
+            IProgress<StorageProgress>? progress)
+        {
+            using var destStream = new FileStream(
+                destinationPath,
+                overwrite ? FileMode.Create : FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None,
+                bufferSize,
+                FileOptions.SequentialScan);
+
+            var totalBytes = sourceStream.Length;
+            var totalRead = 0L;
+            var stopwatch = Stopwatch.StartNew();
+            var buffer = new byte[bufferSize];
+            int bytesRead;
+
+            while ((bytesRead = sourceStream.Read(buffer, 0, buffer.Length)) > 0)
+            {
+                destStream.Write(buffer, 0, bytesRead);
+                totalRead += bytesRead;
+
+                if (progress != null)
+                {
+                    // Report progress after each successful write
+                    double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
+                    double bytesPerSecond = elapsedSeconds > 0 ? totalRead / elapsedSeconds : 0;
+                    progress.Report(new StorageProgress
+                    {
+                        TotalBytes = totalBytes,
+                        BytesTransferred = totalRead,
+                        BytesPerSecond = bytesPerSecond
+                    });
+                }
+            }
         }
     }
 }

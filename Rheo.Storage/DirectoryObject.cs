@@ -13,7 +13,7 @@ namespace Rheo.Storage
     /// and its contents. Changes detected in the directory may affect related properties and events. This class is
     /// intended for use in scenarios where directory monitoring and advanced file system operations are
     /// required.</remarks>
-    public class DirectoryObject : StorageObject
+    public class DirectoryObject : StorageObject<DirectoryObject, DirectoryInformation>
     {
         private readonly FileSystemWatcher _watcher;
 
@@ -55,20 +55,12 @@ namespace Rheo.Storage
                 _watcher.Changed += Watcher_Changed;
                 _watcher.Created += Watcher_Changed;
                 _watcher.Deleted += Watcher_Changed;
-
-                // Load the information
-                _informationInternal = CreateNewInformationInstance();
             }
             catch (Exception ex)
             {
                 throw new IOException($"Failed to initialize FileSystemWatcher for directory at path: {path}", ex);
             }
         }
-
-        /// <summary>
-        /// Gets metadata information about the storage object, such as size, attributes, and timestamps.
-        /// </summary>
-        public DirectoryInformation Information => (DirectoryInformation)_informationInternal!;
 
         /// <inheritdoc/>
         public override string Name => Path.GetDirectoryName(FullPath)!;

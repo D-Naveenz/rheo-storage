@@ -24,7 +24,7 @@ namespace Rheo.Storage.Test.Models
         /// <summary>
         /// Gets a value indicating whether the item is marked as temporary.
         /// </summary>
-        public bool IsTemporary => Information.IsTemporary;
+        public bool IsTemporary => Information?.IsTemporary ?? false;
 
         /// <summary>
         /// Asynchronously writes the specified content to the file represented by this instance.
@@ -49,41 +49,7 @@ namespace Rheo.Storage.Test.Models
             var bufferSize = GetBufferSize();
 
             using var memoryStream = new MemoryStream(content);
-            using var destStream = new FileStream(
-                FullPath,
-                overwrite ? FileMode.Create : FileMode.CreateNew,
-                FileAccess.Write,
-                FileShare.None,
-                bufferSize,
-                true);
-
-            long totalBytes = memoryStream.Length;
-            long totalBytesWritten = 0;
-            Stopwatch stopwatch = Stopwatch.StartNew();
-
-            byte[] buffer = new byte[bufferSize];
-            int bytesWritten;
-            while ((bytesWritten = await memoryStream.ReadAsync(buffer, cancellationToken)) > 0)
-            {
-                await destStream.WriteAsync(buffer.AsMemory(0, bytesWritten), cancellationToken);
-                totalBytesWritten += bytesWritten;
-                if (progress != null)
-                {
-                    double bytesPerSecond = totalBytesWritten / stopwatch.Elapsed.TotalSeconds;
-                    progress.Report(new StorageProgress
-                    {
-                        TotalBytes = totalBytes,
-                        BytesTransferred = totalBytesWritten,
-                        BytesPerSecond = bytesPerSecond
-                    });
-                }
-            }
-
-            // Ensure all data is flushed to the file
-            await destStream.FlushAsync(cancellationToken);
-
-            // Raise the Event
-            OnStorageChanged(new(FullPath, StorageChangeType.Created));
+            await WriteAsync(memoryStream, progress, overwrite, cancellationToken);
         }
     }
 }

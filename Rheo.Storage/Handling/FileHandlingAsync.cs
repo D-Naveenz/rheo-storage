@@ -31,7 +31,6 @@ namespace Rheo.Storage.Handling
             CancellationToken cancellationToken = default)
         {
             // INITIALIZATION
-            // Assumes the source file is properly validated before calling this method
             ProcessDestinationPath(ref destination, source.Name, overwrite);
             var _lock = source.GetHandlingLock();
             var bufferSize = source.GetBufferSize();
@@ -48,61 +47,13 @@ namespace Rheo.Storage.Handling
                     bufferSize,
                     FileOptions.Asynchronous | FileOptions.SequentialScan);
 
-                using var destStream = new FileStream(
+                await CopyStreamToFileAsync(
+                    sourceStream,
                     destination,
-                    overwrite ? FileMode.Create : FileMode.CreateNew,
-                    FileAccess.Write,
-                    FileShare.None,
+                    overwrite,
                     bufferSize,
-                    FileOptions.Asynchronous | FileOptions.SequentialScan);
-
-                var totalBytes = sourceStream.Length;
-                var totalRead = 0L;
-                var stopwatch = Stopwatch.StartNew();
-
-                // Double buffering: Allows overlapped I/O (read next chunk while writing current chunk)
-                // This achieves 2-3x performance on high-speed storage by keeping both disks busy
-                var buffer1 = new byte[bufferSize];
-                var buffer2 = new byte[bufferSize];
-                var currentBuffer = buffer1;  // Buffer holding data to write
-                var nextBuffer = buffer2;     // Buffer to read next chunk into
-
-                // Prime the pump: Read first chunk synchronously
-                int bytesRead = await sourceStream.ReadAsync(currentBuffer, cancellationToken);
-                
-                while (bytesRead > 0)
-                {
-                    // OVERLAPPED I/O SECTION:
-                    // 1. Start reading next chunk (non-blocking - returns Task immediately)
-                    var readTask = sourceStream.ReadAsync(nextBuffer, cancellationToken);
-                    
-                    // 2. Write current chunk (runs concurrently with the read above)
-                    //    While this writes to disk, the read operation is filling nextBuffer
-                    await destStream.WriteAsync(currentBuffer.AsMemory(0, bytesRead), cancellationToken);
-                    
-                    totalRead += bytesRead;
-
-                    if (progress != null)
-                    {
-                        // Report progress after each successful write
-                        double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
-                        double bytesPerSecond = elapsedSeconds > 0 ? totalRead / elapsedSeconds : 0;
-                        progress.Report(new StorageProgress
-                        {
-                            TotalBytes = totalBytes,
-                            BytesTransferred = totalRead,
-                            BytesPerSecond = bytesPerSecond
-                        });
-                    }
-
-                    // Swap buffers: What was "next" becomes "current" for next iteration
-                    // This is thread-safe because we await readTask below, ensuring no concurrent access
-                    (currentBuffer, nextBuffer) = (nextBuffer, currentBuffer);
-                    
-                    // 3. Ensure the read operation completed before continuing
-                    //    This guarantees nextBuffer is fully populated before we write it
-                    bytesRead = await readTask;
-                }
+                    progress,
+                    cancellationToken);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
@@ -120,23 +71,23 @@ namespace Rheo.Storage.Handling
         /// <summary>
         /// Asynchronously deletes the specified file from the file system and disposes the associated FileObject.
         /// </summary>
-        /// <remarks>After successful deletion, the FileObject is disposed and should not be used. This
-        /// method acquires a lock on the FileObject to ensure thread safety during the delete operation.</remarks>
-        /// <param name="file">The FileObject representing the file to delete. Cannot be null. The file must exist and be accessible for
-        /// deletion.</param>
+        /// <remarks>After successful deletion, the FileObject is disposed and should not be used for
+        /// further operations.</remarks>
+        /// <param name="file">The FileObject representing the file to delete. Cannot be null.</param>
+        /// <param name="cancellationToken">A cancellation token that can be used to cancel the delete operation. The default value is None.</param>
         /// <returns>A task that represents the asynchronous delete operation.</returns>
         /// <exception cref="InvalidOperationException">Thrown if the file cannot be deleted due to an I/O error or insufficient permissions.</exception>
-        public static async Task DeleteAsync(FileObject file)
+        public static async Task DeleteAsync(FileObject file, CancellationToken cancellationToken = default)
         {
             var _lock = file.GetHandlingLock();
 
-            await _lock.WaitAsync();
+            await _lock.WaitAsync(cancellationToken);
             try
             {
                 await Task.Run(() =>
                 {
                     File.Delete(file.FullPath);
-                });
+                }, cancellationToken);
 
                 // Dispose the current FileObject to ensure the stored information are correct
                 file.Dispose();
@@ -174,7 +125,6 @@ namespace Rheo.Storage.Handling
             CancellationToken cancellationToken = default)
         {
             // INITIALIZATION
-            // Assumes the source file is properly validated before calling this method
             ProcessDestinationPath(ref destination, source.Name, overwrite);
             var _lock = source.GetHandlingLock();
 
@@ -185,7 +135,6 @@ namespace Rheo.Storage.Handling
                 if (source.IsInTheSameRoot(destination))
                 {
                     // Same volume move - fast operation (just directory entry update)
-                    // Use Task.Run for async context and cancellation support
                     await Task.Run(() =>
                     {
                         File.Move(source.FullPath, destination, overwrite);
@@ -250,8 +199,8 @@ namespace Rheo.Storage.Handling
         /// <returns>A FileObject representing the file after it has been renamed.</returns>
         /// <exception cref="InvalidOperationException">Thrown if the file cannot be renamed due to an I/O error or insufficient permissions.</exception>
         public static async Task<FileObject> RenameAsync(
-            FileObject source, 
-            string newName, 
+            FileObject source,
+            string newName,
             CancellationToken cancellationToken = default)
         {
             // INITIALIZATION
@@ -282,6 +231,141 @@ namespace Rheo.Storage.Handling
 
             // FINALIZATION
             return new FileObject(destination);
+        }
+
+        /// <summary>
+        /// Asynchronously writes the contents of a stream to the specified file, optionally overwriting existing
+        /// content and reporting progress.
+        /// </summary>
+        /// <remarks>This method acquires an exclusive lock on the file for the duration of the write operation
+        /// to ensure thread safety. The source stream is read from its current position (after seeking to the
+        /// beginning). The FileObject is disposed after writing and a new instance is returned with updated metadata.</remarks>
+        /// <param name="source">The FileObject representing the destination file. Must not be null.</param>
+        /// <param name="sourceStream">The stream containing data to write. Must support reading and have a known length. The stream is not
+        /// disposed by this method.</param>
+        /// <param name="overwrite">A value indicating whether to overwrite the file if it already exists. If <see langword="false"/> and
+        /// the file exists, an exception is thrown.</param>
+        /// <param name="progress">An optional progress reporter that receives updates about the write operation. May be null.</param>
+        /// <param name="cancellationToken">A cancellation token that can be used to cancel the write operation.</param>
+        /// <returns>A task that represents the asynchronous write operation. The task result contains a new FileObject
+        /// representing the updated file.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if the write operation fails due to an I/O error or insufficient permissions.</exception>
+        public static async Task<FileObject> WriteAsync(
+            FileObject source,
+            Stream sourceStream,
+            bool overwrite = false,
+            IProgress<StorageProgress>? progress = null,
+            CancellationToken cancellationToken = default)
+        {
+            // INITIALIZATION
+            var _lock = source.GetHandlingLock();
+            var bufferSize = source.GetBufferSize();
+            var destination = source.FullPath;
+
+            // OPERATION
+            await _lock.WaitAsync(cancellationToken);
+            try
+            {
+                // Ensure we start reading from the beginning
+                sourceStream.Seek(0, SeekOrigin.Begin);
+
+                await CopyStreamToFileAsync(
+                    sourceStream,
+                    destination,
+                    overwrite,
+                    bufferSize,
+                    progress,
+                    cancellationToken);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                throw new InvalidOperationException($"Failed to write to file: {destination}", ex);
+            }
+            finally
+            {
+                _lock.Release();
+            }
+
+            // FINALIZATION
+            source.Dispose();   // Dispose the current FileObject to ensure the stored information are correct
+            return new FileObject(destination);
+        }
+
+        /// <summary>
+        /// Core implementation for copying data from a stream to a file using double-buffered asynchronous I/O.
+        /// </summary>
+        /// <remarks>This internal method implements the double-buffering pattern to achieve overlapped I/O,
+        /// which significantly improves performance on high-speed storage. The method does not acquire locks or manage
+        /// FileObject lifecycle - callers are responsible for synchronization and resource management.</remarks>
+        /// <param name="sourceStream">The source stream to read from. Must support async reads and have a known length.</param>
+        /// <param name="destinationPath">The full path to the destination file.</param>
+        /// <param name="overwrite">Whether to overwrite the destination file if it exists.</param>
+        /// <param name="bufferSize">The buffer size to use for reading and writing.</param>
+        /// <param name="progress">Optional progress reporter for tracking the operation.</param>
+        /// <param name="cancellationToken">Cancellation token for the operation.</param>
+        private static async Task CopyStreamToFileAsync(
+            Stream sourceStream,
+            string destinationPath,
+            bool overwrite,
+            int bufferSize,
+            IProgress<StorageProgress>? progress,
+            CancellationToken cancellationToken)
+        {
+            using var destStream = new FileStream(
+                destinationPath,
+                overwrite ? FileMode.Create : FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None,
+                bufferSize,
+                FileOptions.Asynchronous | FileOptions.SequentialScan);
+
+            var totalBytes = sourceStream.Length;
+            var totalRead = 0L;
+            var stopwatch = Stopwatch.StartNew();
+
+            // Double buffering: Allows overlapped I/O (read next chunk while writing current chunk)
+            // This achieves 2-3x performance on high-speed storage by keeping both disks busy
+            var buffer1 = new byte[bufferSize];
+            var buffer2 = new byte[bufferSize];
+            var currentBuffer = buffer1;  // Buffer holding data to write
+            var nextBuffer = buffer2;     // Buffer to read next chunk into
+
+            // Prime the pump: Read first chunk
+            int bytesRead = await sourceStream.ReadAsync(currentBuffer, cancellationToken);
+
+            while (bytesRead > 0)
+            {
+                // OVERLAPPED I/O SECTION:
+                // 1. Start reading next chunk (non-blocking - returns Task immediately)
+                var readTask = sourceStream.ReadAsync(nextBuffer, cancellationToken);
+
+                // 2. Write current chunk (runs concurrently with the read above)
+                //    While this writes to disk, the read operation is filling nextBuffer
+                await destStream.WriteAsync(currentBuffer.AsMemory(0, bytesRead), cancellationToken);
+
+                totalRead += bytesRead;
+
+                if (progress != null)
+                {
+                    // Report progress after each successful write
+                    double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
+                    double bytesPerSecond = elapsedSeconds > 0 ? totalRead / elapsedSeconds : 0;
+                    progress.Report(new StorageProgress
+                    {
+                        TotalBytes = totalBytes,
+                        BytesTransferred = totalRead,
+                        BytesPerSecond = bytesPerSecond
+                    });
+                }
+
+                // Swap buffers: What was "next" becomes "current" for next iteration
+                // This is thread-safe because we await readTask below, ensuring no concurrent access
+                (currentBuffer, nextBuffer) = (nextBuffer, currentBuffer);
+
+                // 3. Ensure the read operation completed before continuing
+                //    This guarantees nextBuffer is fully populated before we write it
+                bytesRead = await readTask;
+            }
         }
 
         private static void ProcessDestinationPath(ref string destination, string filename, bool overwrite = false)
