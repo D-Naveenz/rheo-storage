@@ -19,21 +19,28 @@ namespace Rheo.Storage
     {
         private readonly ConcurrentBag<string> _changedFiles = [];
         private readonly Timer? _debounceTimer;
-
         private readonly FileSystemWatcher _watcher;
+        
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DirectoryObject"/> class to monitor the specified directory for changes,
+        /// using a default watch interval of 500 milliseconds.
+        /// </summary>
+        /// <param name="path">The full path of the directory to monitor. Cannot be null or empty.</param>
+        public DirectoryObject(string path) : this(path, 500)
+        {
+        }
 
         /// <summary>
-        /// Initializes a new instance of the DirectoryObject class for the specified directory path and begins
-        /// monitoring the directory for changes.
+        /// Initializes a new instance of the DirectoryObject class to monitor the specified directory for changes.
         /// </summary>
-        /// <remarks>The created DirectoryObject instance automatically monitors the specified directory
-        /// and its subdirectories for changes, including file and directory creation, deletion, and attribute
-        /// modifications. Changes detected by the watcher may affect properties such as file counts or directory size.
-        /// The monitoring begins immediately upon construction.</remarks>
-        /// <param name="path">The full path to the directory to be represented and monitored. Cannot be null or empty.</param>
-        /// <exception cref="IOException">Thrown if the directory watcher cannot be initialized for the specified path, such as if the path is invalid
-        /// or inaccessible.</exception>
-        public DirectoryObject(string path) : base(path)
+        /// <remarks>The directory is monitored for file name, size, and last write time changes,
+        /// including changes in subdirectories. The watch interval is used to debounce rapid sequences of file system
+        /// events, reducing redundant processing.</remarks>
+        /// <param name="path">The full path of the directory to monitor. Cannot be null or empty.</param>
+        /// <param name="watchInterval">The interval, in milliseconds, to wait after the last detected change before processing events. Must be
+        /// greater than zero.</param>
+        /// <exception cref="IOException">Thrown if the directory watcher cannot be initialized for the specified path.</exception>
+        public DirectoryObject(string path, int watchInterval) : base(path)
         {
             path = FullPath; // Ensure base class has processed the path
 
@@ -56,8 +63,8 @@ namespace Rheo.Storage
 
                 _watcher.EnableRaisingEvents = true;
 
-                // Debounce timer: waits 1 second after last event before processing
-                _debounceTimer = new Timer(OnDebounceTimerTick, _changedFiles, Timeout.Infinite, 1000);
+                // Debounce timer: waits <watchInterval> milliseconds after last event before processing
+                _debounceTimer = new Timer(OnDebounceTimerTick, _changedFiles, Timeout.Infinite, watchInterval);
             }
             catch (Exception ex)
             {

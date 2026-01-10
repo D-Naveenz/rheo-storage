@@ -1,5 +1,4 @@
 using Rheo.Storage.Information;
-using Rheo.Storage.Test.FileDefinitions;
 using Rheo.Storage.Test.Models;
 using Rheo.Storage.Test.Utilities;
 
