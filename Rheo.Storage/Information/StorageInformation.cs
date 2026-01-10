@@ -109,7 +109,7 @@ namespace Rheo.Storage.Information
 
         #region Properties: Size
         /// <inheritdoc/>
-        public abstract ulong Size { get; }
+        public abstract long Size { get; }
 
         /// <inheritdoc/>
         public string FormattedSize => GetSizeString();
@@ -145,13 +145,13 @@ namespace Rheo.Storage.Information
         public Icon? Icon => TryGetWindowsStorageInfo(out var winfo) ? winfo.Icon : null;
 
         /// <inheritdoc/>
-        public uint? OwnerId => TryGetUnixStorageInfo(out var uinfo) ? uinfo.OwnerId : null;
+        public int? OwnerId => TryGetUnixStorageInfo(out var uinfo) ? (int)uinfo.OwnerId : null;
 
         /// <inheritdoc/>
-        public uint? GroupId => TryGetUnixStorageInfo(out var uinfo) ? uinfo.GroupId : null;
+        public int? GroupId => TryGetUnixStorageInfo(out var uinfo) ? (int)uinfo.GroupId : null;
 
         /// <inheritdoc/>
-        public uint? Mode => TryGetUnixStorageInfo(out var uinfo) ? uinfo.Mode : null;
+        public int? Mode => TryGetUnixStorageInfo(out var uinfo) ? (int)uinfo.Mode : null;
 
         #endregion
 

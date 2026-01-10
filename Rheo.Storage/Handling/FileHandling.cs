@@ -175,10 +175,12 @@ namespace Rheo.Storage.Handling
         /// <param name="source">The FileObject representing the file to be renamed. Must not be null.</param>
         /// <param name="newName">The new name for the file. Must be a valid file name and cannot be null or empty.</param>
         /// <returns>A <see cref="FileObject"/> representing the file after it has been renamed.</returns>
+        /// <exception cref="ArgumentException">Thrown if the new name is null, empty, or contains invalid characters.</exception>
         /// <exception cref="InvalidOperationException">Thrown if the file cannot be renamed due to an I/O error or insufficient permissions.</exception>
         public static FileObject Rename(FileObject source, string newName)
         {
             // INITIALIZATION
+            ThrowIfInavalidFileName(newName);
             var destination = Path.Combine(source.ParentDirectory, newName);
             ProcessDestinationPath(ref destination, newName, false);
 
@@ -188,9 +190,6 @@ namespace Rheo.Storage.Handling
                 try
                 {
                     File.Move(source.FullPath, destination, false);
-
-                    // Dispose the current FileObject to ensure the stored information are correct
-                    // source.Dispose();
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {

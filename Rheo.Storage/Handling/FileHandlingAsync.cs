@@ -73,28 +73,28 @@ namespace Rheo.Storage.Handling
         /// </summary>
         /// <remarks>After successful deletion, the FileObject is disposed and should not be used for
         /// further operations.</remarks>
-        /// <param name="file">The FileObject representing the file to delete. Cannot be null.</param>
+        /// <param name="source">The FileObject representing the file to delete. Cannot be null.</param>
         /// <param name="cancellationToken">A cancellation token that can be used to cancel the delete operation. The default value is None.</param>
         /// <returns>A task that represents the asynchronous delete operation.</returns>
         /// <exception cref="InvalidOperationException">Thrown if the file cannot be deleted due to an I/O error or insufficient permissions.</exception>
-        public static async Task DeleteAsync(FileObject file, CancellationToken cancellationToken = default)
+        public static async Task DeleteAsync(FileObject source, CancellationToken cancellationToken = default)
         {
-            var _lock = file.Semaphore;
+            var _lock = source.Semaphore;
 
             await _lock.WaitAsync(cancellationToken);
             try
             {
                 await Task.Run(() =>
                 {
-                    File.Delete(file.FullPath);
+                    File.Delete(source.FullPath);
                 }, cancellationToken);
 
                 // Dispose the current FileObject to ensure the stored information are correct
-                file.Dispose();
+                source.Dispose();
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                throw new InvalidOperationException($"Failed to delete file: {file.FullPath}", ex);
+                throw new InvalidOperationException($"Failed to delete file: {source.FullPath}", ex);
             }
             finally
             {
@@ -197,6 +197,7 @@ namespace Rheo.Storage.Handling
         /// <param name="newName">The new name for the file. Must be a valid file name and cannot be null or empty.</param>
         /// <param name="cancellationToken">A CancellationToken that can be used to cancel the rename operation.</param>
         /// <returns>A FileObject representing the file after it has been renamed.</returns>
+        /// <exception cref="ArgumentException">Thrown if the new name is null, empty, or contains invalid characters.</exception>
         /// <exception cref="InvalidOperationException">Thrown if the file cannot be renamed due to an I/O error or insufficient permissions.</exception>
         public static async Task<FileObject> RenameAsync(
             FileObject source,
@@ -204,6 +205,7 @@ namespace Rheo.Storage.Handling
             CancellationToken cancellationToken = default)
         {
             // INITIALIZATION
+            ThrowIfInavalidFileName(newName);
             var destination = Path.Combine(source.ParentDirectory, newName);
             ProcessDestinationPath(ref destination, newName, false);
             var _lock = source.Semaphore;
@@ -216,9 +218,6 @@ namespace Rheo.Storage.Handling
                 {
                     File.Move(source.FullPath, destination, false);
                 }, cancellationToken);
-
-                // Dispose the current FileObject to ensure the stored information are correct
-                source.Dispose();
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
@@ -412,6 +411,14 @@ namespace Rheo.Storage.Handling
             {
                 // Wrap filesystem exceptions with context
                 throw new InvalidOperationException($"Failed to process destination path '{destination}'.", ex);
+            }
+        }
+
+        private static void ThrowIfInavalidFileName(string fileName)
+        {
+            if (string.IsNullOrWhiteSpace(fileName) || fileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+            {
+                throw new ArgumentException($"The file name '{fileName}' is invalid.", nameof(fileName));
             }
         }
     }

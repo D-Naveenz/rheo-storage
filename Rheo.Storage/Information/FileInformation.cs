@@ -134,7 +134,7 @@ namespace Rheo.Storage.Information
 
         #region Properties: Size
         /// <inheritdoc/>
-        public override ulong Size => _storageInfoLazy.Value.Size;
+        public override long Size => (long)_storageInfoLazy.Value.Size;
 
         /// <inheritdoc/>
         public bool Equals(FileInformation? other)

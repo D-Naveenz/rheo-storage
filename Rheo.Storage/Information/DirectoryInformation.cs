@@ -99,7 +99,7 @@ namespace Rheo.Storage.Information
 
         #region Properties: Size
         /// <inheritdoc/>
-        public override ulong Size { get; }
+        public override long Size { get; }
 
         #endregion
 
@@ -145,16 +145,16 @@ namespace Rheo.Storage.Information
             return !(left == right);
         }
 
-        private static ulong CalculateDirectorySize(DirectoryInfo systemDirInfo)
+        private static long CalculateDirectorySize(DirectoryInfo systemDirInfo)
         {
             try
             {
-                ulong size = 0;
+                long size = 0;
                 // Add file sizes.
                 FileInfo[] files = systemDirInfo.GetFiles();
                 foreach (FileInfo file in files)
                 {
-                    size += (ulong)file.Length;
+                    size += file.Length;
                 }
                 // Add subdirectory sizes.
                 DirectoryInfo[] dirs = systemDirInfo.GetDirectories();
