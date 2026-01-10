@@ -36,11 +36,10 @@ namespace Rheo.Storage.Handling
             try
             {
                 // Step 1: Create all directories first (including empty ones)
-                var directories = Directory.GetDirectories(fullPath, "*", SearchOption.AllDirectories);
-                foreach (var dir in directories)
+                var directories = Directory.GetDirectories(fullPath, "*", SearchOption.AllDirectories)
+                    .Select(dir => Path.Combine(destination, Path.GetRelativePath(fullPath, dir)));
+                foreach (var targetDir in directories)
                 {
-                    var relativeDir = Path.GetRelativePath(fullPath, dir);
-                    var targetDir = Path.Combine(destination, relativeDir);
                     if (!Directory.Exists(targetDir))
                     {
                         Directory.CreateDirectory(targetDir);
@@ -81,21 +80,6 @@ namespace Rheo.Storage.Handling
                     // Use FileHandling.Copy for efficient file copying
                     var targetDir = Path.GetDirectoryName(targetFilePath)!;
                     FileHandling.Copy(fileObj, targetDir, overwrite, fileProgress);
-                    
-                    // Update progress for completion tracking (if no per-file progress)
-                    if (progress != null && fileProgress == null)
-                    {
-                        bytesTransferred += new FileInfo(filePath).Length;
-                        double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
-                        double bytesPerSecond = elapsedSeconds > 0 ? bytesTransferred / elapsedSeconds : 0;
-                        
-                        progress.Report(new StorageProgress
-                        {
-                            TotalBytes = totalBytes,
-                            BytesTransferred = bytesTransferred,
-                            BytesPerSecond = bytesPerSecond
-                        });
-                    }
                 }
             }
             catch (Exception ex)

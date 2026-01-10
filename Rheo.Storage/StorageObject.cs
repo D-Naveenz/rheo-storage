@@ -244,7 +244,7 @@ namespace Rheo.Storage
         /// <summary>
         /// Throws an <see cref="ObjectDisposedException"/> if this storage object has been disposed.
         /// </summary>
-        /// <exception cref="ObjectDisposedException">Thrown if the object has already been disposed.</exception>"
+        /// <exception cref="ObjectDisposedException">Thrown if the object has already been disposed.</exception>
         public void ThrowIfDisposed()
         {
             ObjectDisposedException.ThrowIf(_disposed, this);

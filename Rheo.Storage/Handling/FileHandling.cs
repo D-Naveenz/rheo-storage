@@ -180,7 +180,7 @@ namespace Rheo.Storage.Handling
         public static FileObject Rename(FileObject source, string newName)
         {
             // INITIALIZATION
-            ThrowIfInavalidFileName(newName);
+            ThrowIfInvalidFileName(newName);
             var destination = Path.Combine(source.ParentDirectory, newName);
             ProcessDestinationPath(ref destination, newName, false);
 

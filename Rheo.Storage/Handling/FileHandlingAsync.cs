@@ -205,7 +205,7 @@ namespace Rheo.Storage.Handling
             CancellationToken cancellationToken = default)
         {
             // INITIALIZATION
-            ThrowIfInavalidFileName(newName);
+            ThrowIfInvalidFileName(newName);
             var destination = Path.Combine(source.ParentDirectory, newName);
             ProcessDestinationPath(ref destination, newName, false);
             var _lock = source.Semaphore;
@@ -414,7 +414,7 @@ namespace Rheo.Storage.Handling
             }
         }
 
-        private static void ThrowIfInavalidFileName(string fileName)
+        private static void ThrowIfInvalidFileName(string fileName)
         {
             if (string.IsNullOrWhiteSpace(fileName) || fileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
             {

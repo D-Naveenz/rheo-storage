@@ -62,44 +62,37 @@ namespace Rheo.Storage.Handling
                     var targetFilePath = Path.Combine(destination, relativePath);
 
                     // Create FileObject for source file
-                    var fileObj = new FileObject(filePath);
+                    using var fileObj = new FileObject(filePath);
                     
-                    try
+                    // Create a progress wrapper to aggregate progress
+                    IProgress<StorageProgress>? fileProgress = null;
+                    if (progress != null)
                     {
-                        // Create a progress wrapper to aggregate progress
-                        IProgress<StorageProgress>? fileProgress = null;
-                        if (progress != null)
+                        fileProgress = new Progress<StorageProgress>(sp =>
                         {
-                            fileProgress = new Progress<StorageProgress>(sp =>
+                            // Update overall progress
+                            var currentTotal = Interlocked.Add(ref bytesTransferred, sp.BytesTransferred);
+                            
+                            double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
+                            double bytesPerSecond = elapsedSeconds > 0 ? currentTotal / elapsedSeconds : 0;
+                            
+                            progress.Report(new StorageProgress
                             {
-                                // Update overall progress
-                                var currentTotal = Interlocked.Add(ref bytesTransferred, sp.BytesTransferred);
-                                
-                                double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
-                                double bytesPerSecond = elapsedSeconds > 0 ? currentTotal / elapsedSeconds : 0;
-                                
-                                progress.Report(new StorageProgress
-                                {
-                                    TotalBytes = totalBytes,
-                                    BytesTransferred = currentTotal,
-                                    BytesPerSecond = bytesPerSecond
-                                });
+                                TotalBytes = totalBytes,
+                                BytesTransferred = currentTotal,
+                                BytesPerSecond = bytesPerSecond
                             });
-                        }
+                        });
+                    }
 
-                        // Use FileHandling.CopyAsync for efficient file copying
-                        var targetDir = Path.GetDirectoryName(targetFilePath)!;
-                        await FileHandling.CopyAsync(
-                            fileObj,
-                            targetDir,
-                            overwrite,
-                            fileProgress,
-                            cancellationToken);
-                    }
-                    finally
-                    {
-                        fileObj.Dispose();
-                    }
+                    // Use FileHandling.CopyAsync for efficient file copying
+                    var targetDir = Path.GetDirectoryName(targetFilePath)!;
+                    await FileHandling.CopyAsync(
+                        fileObj,
+                        targetDir,
+                        overwrite,
+                        fileProgress,
+                        cancellationToken);
                 }).ToList();
 
                 // Wait for all file copies to complete
