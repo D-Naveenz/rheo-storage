@@ -106,10 +106,15 @@ namespace Rheo.Storage.Handling
             {
                 try
                 {
-                    Directory.Delete(source.FullPath, true);
+                    var path = source.FullPath; // Store path before disposing
 
                     // Dispose the source object to release resources
                     source.Dispose();
+                    Directory.Delete(path, true);
+                }
+                catch (DirectoryNotFoundException)
+                {
+                    // Directory already deleted; treat as successful deletion
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {

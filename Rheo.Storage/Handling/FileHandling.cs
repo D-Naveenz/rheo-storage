@@ -65,23 +65,28 @@ namespace Rheo.Storage.Handling
         /// </summary>
         /// <remarks>After successful deletion, the FileObject is disposed and should not be used. This
         /// method acquires a lock on the FileObject to ensure thread safety during the delete operation.</remarks>
-        /// <param name="file">The FileObject representing the file to delete. Cannot be null. The file must exist and be accessible for
+        /// <param name="source">The FileObject representing the file to delete. Cannot be null. The file must exist and be accessible for
         /// deletion.</param>
         /// <exception cref="InvalidOperationException">Thrown if the file cannot be deleted due to an I/O error or insufficient permissions.</exception>
-        public static void Delete(FileObject file)
+        public static void Delete(FileObject source)
         {
-            lock(file.StateLock)
+            lock(source.StateLock)
             {
                 try
                 {
-                    File.Delete(file.FullPath);
+                    var path = source.FullPath; // Store path before disposing
 
                     // Dispose the current FileObject to ensure the stored information are correct
-                    file.Dispose();
+                    source.Dispose();
+                    File.Delete(path);
+                }
+                catch (FileNotFoundException)
+                {
+                    // File already deleted - consider as successful
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
-                    throw new InvalidOperationException($"Failed to delete file: {file.FullPath}", ex);
+                    throw new InvalidOperationException($"Failed to delete file: {source.FullPath}", ex);
                 }
             }
         }

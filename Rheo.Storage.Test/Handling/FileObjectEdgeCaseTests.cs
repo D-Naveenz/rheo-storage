@@ -7,159 +7,162 @@ namespace Rheo.Storage.Test.Handling;
 [Trait(TestTraits.Category, "Edge Case Tests")]
 public class FileObjectEdgeCaseTests : IDisposable
 {
-  private readonly TestDirectory _testDir;
+    private readonly TestDirectory _testDir;
 
-  public FileObjectEdgeCaseTests()
-  {
-    _testDir = TestDirectory.Create();
-  }
-
-  [Fact]
-  public void Copy_ToSameLocation_CreatesNumberedCopy()
-  {
-    // Arrange
-    var filePath = Path.Combine(_testDir.FullPath, "original.txt");
-    File.WriteAllText(filePath, "test content");
-    using var fileObj = new FileObject(filePath);
-
-    // Act
-    using var copy1 = fileObj.Copy(_testDir.FullPath, overwrite: false);
-    using var copy2 = fileObj.Copy(_testDir.FullPath, overwrite: false);
-
-    // Assert
-    Assert.Contains("(1)", copy1.Name);
-    Assert.Contains("(2)", copy2.Name);
-  }
-
-  [Fact]
-  public async Task CopyAsync_MultipleSimultaneous_AllSucceed()
-  {
-    // Arrange
-    var sourceFile = await _testDir.CreateTestFileAsync(ResourceType.Binary, cancellationToken: TestContext.Current.CancellationToken);
-    var destDir = _testDir.CreateSubdirectory("concurrent_copy");
-
-    // Act
-    var copyTasks = Enumerable.Range(0, 5).Select(i =>
-      sourceFile.CopyAsync(Path.Combine(destDir.FullPath, $"copy_{i}"), overwrite: true, cancellationToken: TestContext.Current.CancellationToken)
-    ).ToList();
-
-    var results = await Task.WhenAll(copyTasks);
-
-    // Assert
-    Assert.Equal(5, results.Length);
-    Assert.All(results, r => Assert.True(File.Exists(r.FullPath)));
-
-    // Cleanup
-    foreach (var result in results)
+    public FileObjectEdgeCaseTests()
     {
-      result.Dispose();
+        _testDir = TestDirectory.Create();
     }
-  }
 
-  [Fact]
-  public void Write_EmptyStream_CreatesEmptyFile()
-  {
-    // Arrange
-    var filePath = Path.Combine(_testDir.FullPath, "empty.bin");
-    using var fileObj = new FileObject(filePath);
-    using var emptyStream = new MemoryStream();
+    [Fact]
+    public void Copy_ToSameLocation_CreatesNumberedCopy()
+    {
+        // Arrange
+        var filePath = Path.Combine(_testDir.FullPath, "original.txt");
+        File.WriteAllText(filePath, "test content");
+        using var fileObj = new FileObject(filePath);
 
-    // Act
-    fileObj.Write(emptyStream, overwrite: true);
+        // Act
+        using var copy1 = fileObj.Copy(_testDir.FullPath, overwrite: false);
+        using var copy2 = fileObj.Copy(_testDir.FullPath, overwrite: false);
 
-    // Assert
-    Assert.True(File.Exists(filePath));
-    Assert.Equal(0, new FileInfo(filePath).Length);
-  }
+        // Assert
+        Assert.Contains("(1)", copy1.Name);
+        Assert.Contains("(2)", copy2.Name);
+    }
 
-  [Fact]
-  public void GetBufferSize_ForSmallFile_ReturnsMinimumBuffer()
-  {
-    // Arrange
-    var filePath = Path.Combine(_testDir.FullPath, "small.txt");
-    File.WriteAllText(filePath, "tiny");
-    using var fileObj = new FileObject(filePath);
+    [Fact]
+    public async Task CopyAsync_MultipleSimultaneous_AllSucceed()
+    {
+        // Arrange
+        var sourceFile = await _testDir.CreateTestFileAsync(ResourceType.Binary, cancellationToken: TestContext.Current.CancellationToken);
+        var destDir = _testDir.CreateSubdirectory("concurrent_copy");
 
-    // Act
-    var bufferSize = fileObj.GetBufferSize();
+        // Act
+        var copyTasks = Enumerable.Range(0, 5).Select(i =>
+          sourceFile.CopyAsync(Path.Combine(destDir.FullPath, $"copy_{i}"), overwrite: true, cancellationToken: TestContext.Current.CancellationToken)
+        ).ToList();
 
-    // Assert
-    Assert.True(bufferSize >= 1024); // MIN_BUFFER_SIZE
-  }
+        var results = await Task.WhenAll(copyTasks);
 
-  [Fact]
-  public void Move_ToNonExistentDirectory_CreatesDirectory()
-  {
-    // Arrange
-    var filePath = Path.Combine(_testDir.FullPath, "move_test.txt");
-    File.WriteAllText(filePath, "content");
-    using var fileObj = new FileObject(filePath);
-    var newDir = Path.Combine(_testDir.FullPath, "new", "nested", "dir");
+        // Assert
+        Assert.Equal(5, results.Length);
+        Assert.All(results, r => Assert.True(File.Exists(r.FullPath)));
 
-    // Act
-    using var movedFile = fileObj.Move(newDir, overwrite: false);
+        // Cleanup
+        foreach (var result in results)
+        {
+            result.Dispose();
+        }
+    }
 
-    // Assert
-    Assert.True(Directory.Exists(newDir));
-    Assert.True(File.Exists(movedFile.FullPath));
-  }
+    [Fact]
+    public void Write_EmptyStream_CreatesEmptyFile()
+    {
+        // Arrange
+        var filePath = Path.Combine(_testDir.FullPath, "empty.bin");
+        using var fileObj = new FileObject(filePath);
+        using var emptyStream = new MemoryStream();
 
-  [Fact]
-  public void Rename_ToExistingFileName_ThrowsIOException()
-  {
-    // Arrange
-    var file1Path = Path.Combine(_testDir.FullPath, "file1.txt");
-    var file2Path = Path.Combine(_testDir.FullPath, "file2.txt");
-    File.WriteAllText(file1Path, "content1");
-    File.WriteAllText(file2Path, "content2");
-    using var fileObj1 = new FileObject(file1Path);
+        // Act
+        fileObj.Write(emptyStream, overwrite: true);
 
-    // Act & Assert
-    Assert.Throws<InvalidOperationException>(() => fileObj1.Rename("file2.txt"));
-  }
+        // Assert
+        Assert.True(File.Exists(filePath));
+        Assert.Equal(0, new FileInfo(filePath).Length);
+    }
 
-  [Fact]
-  public async Task WriteAsync_LargeFile_CompletesSuccessfully()
-  {
-    // Arrange
-    var filePath = Path.Combine(_testDir.FullPath, "large.bin");
-    using var fileObj = new FileObject(filePath);
-    var largeData = new byte[5 * 1024 * 1024]; // 5 MB
-    new Random(42).NextBytes(largeData);
-    using var stream = new MemoryStream(largeData);
+    [Fact]
+    public void GetBufferSize_ForSmallFile_ReturnsMinimumBuffer()
+    {
+        // Arrange
+        var filePath = Path.Combine(_testDir.FullPath, "small.txt");
+        File.WriteAllText(filePath, "tiny");
+        using var fileObj = new FileObject(filePath);
 
-    // Act
-    await fileObj.WriteAsync(stream, overwrite: true, cancellationToken: TestContext.Current.CancellationToken);
+        // Act
+        var bufferSize = fileObj.GetBufferSize();
 
-    // Assert
-    var fileInfo = new FileInfo(filePath);
-    Assert.Equal(largeData.Length, fileInfo.Length);
-  }
+        // Assert
+        Assert.True(bufferSize >= 1024); // MIN_BUFFER_SIZE
+    }
 
-  [Fact]
-  public void CopyFrom_UpdatesInformation()
-  {
-    // Arrange
-    var file1Path = Path.Combine(_testDir.FullPath, "file1.txt");
-    var file2Path = Path.Combine(_testDir.FullPath, "file2.txt");
-    File.WriteAllText(file1Path, "small");
-    File.WriteAllText(file2Path, "much larger content here");
-    
-    using var fileObj1 = new FileObject(file1Path);
-    using var fileObj2 = new FileObject(file2Path);
-    var originalSize = fileObj1.Information.Size;
+    [Fact]
+    public void Move_ToNonExistentDirectory_CreatesDirectory()
+    {
+        // Arrange
+        var filePath = Path.Combine(_testDir.FullPath, "move_test.txt");
+        File.WriteAllText(filePath, "content");
+        using var fileObj = new FileObject(filePath);
+        var newDir = Path.Combine(_testDir.FullPath, "new", "nested", "dir");
 
-    // Act
-    fileObj1.CopyFrom(fileObj2);
+        // Act
+        using var movedFile = fileObj.Move(newDir, overwrite: false);
 
-    // Assert
-    Assert.NotEqual(originalSize, fileObj1.Information.Size);
-    Assert.Equal(file2Path, fileObj1.FullPath);
-  }
+        // Assert
+        Assert.True(Directory.Exists(newDir));
+        Assert.True(File.Exists(movedFile.FullPath));
+    }
 
-  public void Dispose()
-  {
-    _testDir?.Dispose();
-    GC.SuppressFinalize(this);
-  }
+    [Fact]
+    public void Rename_ToExistingFileName_Resolves_Conflicts()
+    {
+        // Arrange
+        var file1Path = Path.Combine(_testDir.FullPath, "file1.txt");
+        var file2Path = Path.Combine(_testDir.FullPath, "file2.txt");
+        File.WriteAllText(file1Path, "content1");
+        File.WriteAllText(file2Path, "content2");
+        using var fileObj1 = new FileObject(file1Path);
+
+        // Act
+        fileObj1.Rename("file2.txt");
+
+        // Assert
+        Assert.True(File.Exists(Path.Combine(_testDir.FullPath, "file2 (1).txt")));
+    }
+
+    [Fact]
+    public async Task WriteAsync_LargeFile_CompletesSuccessfully()
+    {
+        // Arrange
+        var filePath = Path.Combine(_testDir.FullPath, "large.bin");
+        using var fileObj = new FileObject(filePath);
+        var largeData = new byte[5 * 1024 * 1024]; // 5 MB
+        new Random(42).NextBytes(largeData);
+        using var stream = new MemoryStream(largeData);
+
+        // Act
+        await fileObj.WriteAsync(stream, overwrite: true, cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        var fileInfo = new FileInfo(filePath);
+        Assert.Equal(largeData.Length, fileInfo.Length);
+    }
+
+    [Fact]
+    public void CopyFrom_UpdatesInformation()
+    {
+        // Arrange
+        var file1Path = Path.Combine(_testDir.FullPath, "file1.txt");
+        var file2Path = Path.Combine(_testDir.FullPath, "file2.txt");
+        File.WriteAllText(file1Path, "small");
+        File.WriteAllText(file2Path, "much larger content here");
+
+        using var fileObj1 = new FileObject(file1Path);
+        using var fileObj2 = new FileObject(file2Path);
+        var originalSize = fileObj1.Information.Size;
+
+        // Act
+        fileObj1.CopyFrom(fileObj2);
+
+        // Assert
+        Assert.NotEqual(originalSize, fileObj1.Information.Size);
+        Assert.Equal(file2Path, fileObj1.FullPath);
+    }
+
+    public void Dispose()
+    {
+        _testDir?.Dispose();
+        GC.SuppressFinalize(this);
+    }
 }

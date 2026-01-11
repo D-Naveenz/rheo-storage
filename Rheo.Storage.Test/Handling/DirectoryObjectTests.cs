@@ -323,12 +323,22 @@ public class DirectoryObjectTests(TestDirectoryFixture fixture) : IClassFixture<
     
     var destParent = TestDir.CreateSubdirectory("move_same_dest");
     var progressReports = new List<StorageProgress>();
-    var progress = new Progress<StorageProgress>(p => progressReports.Add(p));
+    var progressReported = new TaskCompletionSource<bool>();
+    var progress = new Progress<StorageProgress>(p =>
+    {
+      progressReports.Add(p);
+      progressReported.TrySetResult(true);
+    });
 
     // Act
     using var movedDir = sourceDir.Move(destParent.FullPath, progress, overwrite: false);
 
+    // Wait for progress callback to execute (with timeout)
+    var completedInTime = await Task.WhenAny(
+        progressReported.Task, Task.Delay(1000, TestContext.Current.CancellationToken)) == progressReported.Task;
+
     // Assert
+    Assert.True(completedInTime, "Progress callback did not execute within timeout");
     Assert.True(Directory.Exists(movedDir.FullPath));
     Assert.Single(progressReports); // Same volume should report single update
   }

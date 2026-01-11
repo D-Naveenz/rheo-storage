@@ -18,15 +18,17 @@ namespace Rheo.Storage
         /// Initializes a new instance of the FileObject class for the specified file path, creating the file if it does
         /// not already exist.
         /// </summary>
-        /// <remarks>If the specified file does not exist, it is created. The constructor does not keep
-        /// the file open after initialization.</remarks>
+        /// <remarks>If the specified file does not exist, it is created. The constructor ensures proper
+        /// file handle cleanup to prevent file locking issues.</remarks>
         /// <param name="path">The path to the file to be represented by this object. Can be either an absolute or relative path.</param>
         public FileObject(string path) : base(path)
         {
             path = FullPath; // Ensure base class has processed the path
 
             // Ensure the file exists without holding a stream open
-            File.Open(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.Read).Dispose();
+            // Use 'using' to guarantee disposal even if an exception occurs
+            // Use FileShare.ReadWrite to avoid blocking other operations
+            using var fileStream = File.Open(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite);
         }
 
         /// <inheritdoc/>

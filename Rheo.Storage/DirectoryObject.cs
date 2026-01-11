@@ -44,6 +44,9 @@ namespace Rheo.Storage
         {
             path = FullPath; // Ensure base class has processed the path
 
+            // Ensure the Directory exists
+            Directory.CreateDirectory(path);
+
             try
             {
                 _watcher = new FileSystemWatcher(path)

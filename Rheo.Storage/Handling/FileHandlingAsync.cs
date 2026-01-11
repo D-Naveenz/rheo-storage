@@ -84,13 +84,18 @@ namespace Rheo.Storage.Handling
             await _lock.WaitAsync(cancellationToken);
             try
             {
-                await Task.Run(() =>
-                {
-                    File.Delete(source.FullPath);
-                }, cancellationToken);
+                var path = source.FullPath; // Store path before disposing
 
                 // Dispose the current FileObject to ensure the stored information are correct
                 source.Dispose();
+                await Task.Run(() =>
+                {
+                    File.Delete(path);
+                }, cancellationToken);
+            }
+            catch (FileNotFoundException)
+            {
+                // File already deleted - consider as successful
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
