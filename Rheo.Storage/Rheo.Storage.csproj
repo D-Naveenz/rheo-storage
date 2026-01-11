@@ -11,10 +11,10 @@
     <RepositoryUrl>https://github.com/D-Naveenz/Rheo</RepositoryUrl>
     <Copyright>Copyright (c) 2025 Naveen Dharmathunga, All rights reserved.</Copyright>
     <Description>A modern .NET library for file and directory operations with rich metadata, content-based file analysis, and asynchronous I/O operations.</Description>
-    <Version>0.5.4-beta.2</Version>
+    <Version>0.6.18-beta.2</Version>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
     <PackageTags>definition; extension; types; asynchronous; mime; file-handling; directory-management; magic-numbers; file-analysis; rheo;</PackageTags>
-    <DocumentationFile>$(MSBuildProjectDirectory)\documentation.xml</DocumentationFile>
+    <DocumentationFile></DocumentationFile>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">

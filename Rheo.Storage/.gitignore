@@ -1,4 +1,4 @@
 # Project specific files
 /Assets/*.json
 /Notes/*.*
-documentation.xml
+/Docs/**/*.md
