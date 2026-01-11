@@ -31,7 +31,7 @@ namespace Rheo.Storage.Handling
             var bufferSize = source.GetBufferSize();
 
             // OPERATION
-            lock(source.Lock)
+            lock(source.StateLock)
             {
                 try
                 {
@@ -70,7 +70,7 @@ namespace Rheo.Storage.Handling
         /// <exception cref="InvalidOperationException">Thrown if the file cannot be deleted due to an I/O error or insufficient permissions.</exception>
         public static void Delete(FileObject file)
         {
-            lock(file.Lock)
+            lock(file.StateLock)
             {
                 try
                 {
@@ -114,7 +114,7 @@ namespace Rheo.Storage.Handling
             ProcessDestinationPath(ref destination, source.Name, overwrite);
 
             // OPERATION
-            lock(source.Lock)
+            lock(source.StateLock)
             {
                 try
                 {
@@ -181,11 +181,11 @@ namespace Rheo.Storage.Handling
         {
             // INITIALIZATION
             ThrowIfInvalidFileName(newName);
-            var destination = Path.Combine(source.ParentDirectory, newName);
+            var destination = source.ParentDirectory;
             ProcessDestinationPath(ref destination, newName, false);
 
             // OPERATION
-            lock(source.Lock)
+            lock(source.StateLock)
             {
                 try
                 {
@@ -227,7 +227,7 @@ namespace Rheo.Storage.Handling
             var destination = source.FullPath;
 
             // OPERATION
-            lock(source.Lock)
+            lock(source.StateLock)
             {
                 try
                 {

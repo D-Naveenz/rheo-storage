@@ -34,7 +34,7 @@ namespace Rheo.Storage
         {
             get
             {
-                lock (Lock)
+                lock (StateLock)
                 {
                     return Path.GetFileName(FullPath);
                 }

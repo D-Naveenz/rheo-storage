@@ -1,4 +1,5 @@
 using Rheo.Storage.Test.Models;
+using Rheo.Storage.Test.Utilities;
 
 namespace Rheo.Storage.Test.Handling;
 
@@ -148,7 +149,7 @@ public class FileObjectTests(TestDirectoryFixture fixture) : IClassFixture<TestD
   }
 
   [Fact]
-  public async Task CopyAsync_WithCancellation_ThrowsOperationCanceledException()
+  public async Task CopyAsync_WithCancellation_ThrowsTaskCanceledException()
   {
     // Arrange
     var sourceFile = await TestDir.CreateTestFileAsync(ResourceType.Video, cancellationToken: TestContext.Current.CancellationToken);
@@ -157,7 +158,7 @@ public class FileObjectTests(TestDirectoryFixture fixture) : IClassFixture<TestD
     cts.Cancel();
 
     // Act & Assert
-    await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+    await Assert.ThrowsAsync<TaskCanceledException>(async () =>
       await sourceFile.CopyAsync(destDir.FullPath, overwrite: false, cancellationToken: cts.Token));
   }
 
@@ -372,7 +373,7 @@ public class FileObjectTests(TestDirectoryFixture fixture) : IClassFixture<TestD
   }
 
   [Fact]
-  public async Task WriteAsync_WithCancellation_ThrowsOperationCanceledException()
+  public async Task WriteAsync_WithCancellation_ThrowsTaskCanceledException()
   {
     // Arrange
     var filePath = Path.Combine(TestDir.FullPath, "write_cancel_test.bin");
@@ -383,7 +384,7 @@ public class FileObjectTests(TestDirectoryFixture fixture) : IClassFixture<TestD
     cts.Cancel();
 
     // Act & Assert
-    await Assert.ThrowsAsync<OperationCanceledException>(async () =>
+    await Assert.ThrowsAsync<TaskCanceledException>(async () =>
       await fileObj.WriteAsync(stream, overwrite: true, cancellationToken: cts.Token));
   }
 

@@ -77,7 +77,7 @@ namespace Rheo.Storage
         {
             get
             {
-                lock(Lock)
+                lock(StateLock)
                 {
                     return Path.GetFileName(FullPath)!;
                 }
@@ -285,11 +285,32 @@ namespace Rheo.Storage
         /// <inheritdoc/>
         public override void Dispose()
         {
-            // Release unmanaged resources
-            _watcher.Dispose();
-            _debounceTimer?.Dispose();
+            lock (StateLock)
+            {
+                // Check if already disposed
+                try { ThrowIfDisposed(); }
+                catch (ObjectDisposedException) { return; }
 
+                // Disable watcher events before disposing
+                if (_watcher != null)
+                {
+                    _watcher.EnableRaisingEvents = false;
+                    _watcher.Changed -= Watcher_Changed;
+                    _watcher.Created -= Watcher_Changed;
+                    _watcher.Deleted -= Watcher_Changed;
+                }
+
+                // Stop and dispose timer
+                _debounceTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+                _debounceTimer?.Dispose();
+                
+                // Dispose watcher
+                _watcher?.Dispose();
+            }
+
+            // Call base dispose (handles its own locking)
             base.Dispose();
+            
             GC.SuppressFinalize(this);
         }
 

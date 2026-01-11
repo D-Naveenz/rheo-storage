@@ -20,15 +20,10 @@ namespace Rheo.Storage
     {
         private const int MIN_BUFFER_SIZE = 1024; // 1KB
         private const int MAX_BUFFER_SIZE = 16 * 1024 * 1024; // 16MB
-
-        //private static readonly Dictionary<string, SemaphoreSlim> _handlingLocks = [];
-        //private static readonly Lock _dictionaryLock = new();
         
-        private bool _disposed;
         private readonly SemaphoreSlim _stateLockingSemaphore = new(1, 1);
-        private readonly Lock _stateLock = new();
-
         private TInfo? _information;
+        private bool _disposed;
 
         /// <summary>
         /// Initializes a new instance of the StorageObject class for the specified file or path.
@@ -65,7 +60,7 @@ namespace Rheo.Storage
                 }
 
                 // Slow path: acquire lock and initialize
-                lock (_stateLock)
+                lock (StateLock)
                 {
                     // Double-check inside lock (another thread might have initialized it)
                     _information ??= CreateInformationInstance();
@@ -75,7 +70,7 @@ namespace Rheo.Storage
             protected set
             {
                 ThrowIfDisposed();
-                lock (_stateLock)
+                lock (StateLock)
                 {
                     _information = value;
                 }
@@ -97,9 +92,17 @@ namespace Rheo.Storage
         /// </summary>
         public string FullPath { get; protected set; }
 
-        internal SemaphoreSlim Semaphore => _stateLockingSemaphore;
+        /// <summary>
+        /// Gets a value indicating whether this storage object has been disposed.
+        /// </summary>
+        public bool IsDisposed => _disposed;
 
-        internal Lock Lock => _stateLock;
+        /// <summary>
+        /// Gets the internal lock object used to synchronize access to the state of this storage object.
+        /// </summary>
+        public Lock StateLock { get; } = new();
+
+        internal SemaphoreSlim Semaphore => _stateLockingSemaphore;
 
         #endregion
 
@@ -214,7 +217,7 @@ namespace Rheo.Storage
             ThrowIfDisposed();
             ArgumentNullException.ThrowIfNull(source);
 
-            lock (_stateLock)  // Protect state mutation
+            lock (StateLock)  // Protect state mutation
             {
                 Information = source.Information;
                 FullPath = source.FullPath;
@@ -257,13 +260,15 @@ namespace Rheo.Storage
         /// class to release additional resources.</remarks>
         public virtual void Dispose()
         {
-            if (!_disposed)
+            lock (StateLock)
             {
-                // Clean up managed resources here, if any
-                FullPath = string.Empty;
-                Information = default;
-
-                _disposed = true;
+                if (!_disposed)
+                {
+                    // Clean up managed resources here, if any
+                    FullPath = string.Empty;
+                    _information = default;
+                    _disposed = true;
+                }
             }
 
             GC.SuppressFinalize(this);

@@ -267,7 +267,7 @@ namespace Rheo.Storage.Handling
         {
             // INITIALIZATION
             ThrowIfInvalidDirectoryName(newName);
-            var destination = Path.Combine(source.ParentDirectory, newName);
+            var destination = source.ParentDirectory;
             ProcessDestinationPath(ref destination, newName, false);
             var _lock = source.Semaphore;
 

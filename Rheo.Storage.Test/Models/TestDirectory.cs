@@ -13,8 +13,6 @@ namespace Rheo.Storage.Test.Models
     /// disposal operations.</remarks>
     public class TestDirectory : DirectoryObject
     {
-        private readonly Lock _disposeLock = new();
-
         private TestDirectory(string storagePath)
             : base(storagePath)
         {
@@ -71,39 +69,42 @@ namespace Rheo.Storage.Test.Models
 
         public override void Dispose()
         {
-            base.Dispose(); // Base classes handle the unloading of resources
-
-            // Clean up the directory and its contents
-            // This operation might be executed in a concurrent environment
-            lock (_disposeLock)
+            // Capture path BEFORE any disposal
+            string pathToDelete;
+            
+            lock (StateLock)
             {
-                // Dispose of all associated test files
-                foreach (var file in TestFiles)
-                {
-                    file.Dispose();
-                }
+                // Early exit if already disposed
+                if (IsDisposed) return;
+                
+                pathToDelete = FullPath;
+            }
+            
+            // Dispose base (this acquires its own lock)
+            base.Dispose();
+            
+            // Clean up test-specific resources (no lock needed - collections are owned by this instance)
+            foreach (var file in TestFiles)
+            {
+                try { file.Dispose(); }
+                catch { /* Best effort */ }
+            }
 
-                // Dispose of all associated test directories
-                foreach (var dir in TestDirectories)
-                {
-                    dir.Dispose();
-                }
+            foreach (var dir in TestDirectories)
+            {
+                try { dir.Dispose(); }
+                catch { /* Best effort */ }
+            }
 
-                if (Directory.Exists(FullPath))
+            // Delete physical directory
+            if (Directory.Exists(pathToDelete))
+            {
+                try
                 {
-                    try
-                    {
-                        Directory.Delete(FullPath, true);
-                    }
-                    catch (IOException)
-                    {
-                        // Handle the case where the directory is in use or cannot be deleted
-                    }
-                    catch (UnauthorizedAccessException)
-                    {
-                        // Handle the case where there are permission issues
-                    }
+                    Directory.Delete(pathToDelete, true);
                 }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
             }
 
             GC.SuppressFinalize(this);

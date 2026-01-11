@@ -102,7 +102,7 @@ namespace Rheo.Storage.Handling
         /// <exception cref="InvalidOperationException">Thrown if the directory cannot be deleted due to an I/O error or insufficient permissions.</exception>
         public static void Delete(DirectoryObject source)
         {
-            lock (source.Lock)
+            lock (source.StateLock)
             {
                 try
                 {
@@ -141,7 +141,7 @@ namespace Rheo.Storage.Handling
             ProcessDestinationPath(ref destination, source.Name, overwrite);
 
             // OPERATION
-            lock (source.Lock)
+            lock (source.StateLock)
             {
                 try
                 {
@@ -215,11 +215,11 @@ namespace Rheo.Storage.Handling
         {
             // INITIALIZATION
             ThrowIfInvalidDirectoryName(newName);
-            var destination = Path.Combine(source.ParentDirectory, newName);
+            var destination = source.ParentDirectory;
             ProcessDestinationPath(ref destination, newName, false);
 
             // OPERATION
-            lock (source.Lock)
+            lock (source.StateLock)
             {
                 try
                 {
