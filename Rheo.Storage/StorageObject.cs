@@ -1,4 +1,5 @@
 ﻿using Rheo.Storage.Contracts;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Rheo.Storage
 {
@@ -13,19 +14,16 @@ namespace Rheo.Storage
     /// mechanisms.</remarks>
     /// <typeparam name="TObj">The type that implements the storage object, used for fluent return types in derived classes.</typeparam>
     /// <typeparam name="TInfo">The type that provides metadata information about the storage object, such as size, attributes, and timestamps.</typeparam>
-    public abstract class StorageObject<TObj, TInfo> : IDisposable      // Using Curiously Recurring Template Pattern (CRTP)
+    public abstract class StorageObject<TObj, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TInfo> : IDisposable      // Using Curiously Recurring Template Pattern (CRTP)
         where TObj : StorageObject<TObj, TInfo>
         where TInfo : IStorageInformation
     {
         private const int MIN_BUFFER_SIZE = 1024; // 1KB
         private const int MAX_BUFFER_SIZE = 16 * 1024 * 1024; // 16MB
-
-        //private static readonly Dictionary<string, SemaphoreSlim> _handlingLocks = [];
-        //private static readonly Lock _dictionaryLock = new();
         
-        private bool _disposed;
         private readonly SemaphoreSlim _stateLockingSemaphore = new(1, 1);
-        private readonly Lock _stateLock = new();
+        private TInfo? _information;
+        private bool _disposed;
 
         /// <summary>
         /// Initializes a new instance of the StorageObject class for the specified file or path.
@@ -43,16 +41,41 @@ namespace Rheo.Storage
             {
                 Directory.CreateDirectory(ParentDirectory);
             }
-
-            // Initialize the information property
-            Information = TInfo.Create<TInfo>(FullPath);
         }
 
         #region Properties
         /// <summary>
         /// Gets metadata information about the storage object, such as size, attributes, and timestamps.
         /// </summary>
-        public TInfo? Information { get; private set; }
+        public TInfo Information
+        {
+            get
+            {
+                ThrowIfDisposed();
+                
+                // Fast path: if already initialized, return immediately
+                if (_information is not null)
+                {
+                    return _information;
+                }
+
+                // Slow path: acquire lock and initialize
+                lock (StateLock)
+                {
+                    // Double-check inside lock (another thread might have initialized it)
+                    _information ??= CreateInformationInstance();
+                    return _information;
+                }
+            }
+            protected set
+            {
+                ThrowIfDisposed();
+                lock (StateLock)
+                {
+                    _information = value;
+                }
+            }
+        }
 
         /// <summary>
         /// Gets the name of the storage object, typically the file or directory name.
@@ -69,9 +92,17 @@ namespace Rheo.Storage
         /// </summary>
         public string FullPath { get; protected set; }
 
-        internal SemaphoreSlim Semaphore => _stateLockingSemaphore;
+        /// <summary>
+        /// Gets a value indicating whether this storage object has been disposed.
+        /// </summary>
+        public bool IsDisposed => _disposed;
 
-        internal Lock Lock => _stateLock;
+        /// <summary>
+        /// Gets the internal lock object used to synchronize access to the state of this storage object.
+        /// </summary>
+        public Lock StateLock { get; } = new();
+
+        internal SemaphoreSlim Semaphore => _stateLockingSemaphore;
 
         #endregion
 
@@ -186,7 +217,7 @@ namespace Rheo.Storage
             ThrowIfDisposed();
             ArgumentNullException.ThrowIfNull(source);
 
-            lock (_stateLock)  // Protect state mutation
+            lock (StateLock)  // Protect state mutation
             {
                 Information = source.Information;
                 FullPath = source.FullPath;
@@ -229,13 +260,15 @@ namespace Rheo.Storage
         /// class to release additional resources.</remarks>
         public virtual void Dispose()
         {
-            if (!_disposed)
+            lock (StateLock)
             {
-                // Clean up managed resources here, if any
-                FullPath = string.Empty;
-                Information = default;
-
-                _disposed = true;
+                if (!_disposed)
+                {
+                    // Clean up managed resources here, if any
+                    FullPath = string.Empty;
+                    _information = default;
+                    _disposed = true;
+                }
             }
 
             GC.SuppressFinalize(this);
@@ -284,6 +317,14 @@ namespace Rheo.Storage
                 return false;
             }
         }
+
+        /// <summary>
+        /// Creates an instance of the storage information type for the specified path.
+        /// </summary>
+        /// <remarks>Derived classes must implement this method to provide the appropriate information type
+        /// for their storage object (e.g., FileInformation for File objects, DirectoryInformation for Directory objects).</remarks>
+        /// <returns>An instance of <typeparamref name="TInfo"/> representing the storage information for the specified path.</returns>
+        protected abstract TInfo CreateInformationInstance();
 
         /// <summary>
         /// Validates the specified path and returns its absolute form if it meets the required criteria for the given

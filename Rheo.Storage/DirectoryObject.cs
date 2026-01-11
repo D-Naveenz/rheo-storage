@@ -1,5 +1,6 @@
 ﻿using Rheo.Storage.Handling;
 using Rheo.Storage.Information;
+using System.Collections.Concurrent;
 
 namespace Rheo.Storage
 {
@@ -16,38 +17,44 @@ namespace Rheo.Storage
     /// management and error handling are consistent with .NET best practices.</remarks>
     public class DirectoryObject : StorageObject<DirectoryObject, DirectoryInformation>
     {
+        private readonly ConcurrentBag<string> _changedFiles = [];
+        private readonly Timer? _debounceTimer;
         private readonly FileSystemWatcher _watcher;
+        
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DirectoryObject"/> class to monitor the specified directory for changes,
+        /// using a default watch interval of 500 milliseconds.
+        /// </summary>
+        /// <param name="path">The full path of the directory to monitor. Cannot be null or empty.</param>
+        public DirectoryObject(string path) : this(path, 500)
+        {
+        }
 
         /// <summary>
-        /// Initializes a new instance of the DirectoryObject class for the specified directory path and begins
-        /// monitoring the directory for changes.
+        /// Initializes a new instance of the DirectoryObject class to monitor the specified directory for changes.
         /// </summary>
-        /// <remarks>The created DirectoryObject instance automatically monitors the specified directory
-        /// and its subdirectories for changes, including file and directory creation, deletion, and attribute
-        /// modifications. Changes detected by the watcher may affect properties such as file counts or directory size.
-        /// The monitoring begins immediately upon construction.</remarks>
-        /// <param name="path">The full path to the directory to be represented and monitored. Cannot be null or empty.</param>
-        /// <exception cref="IOException">Thrown if the directory watcher cannot be initialized for the specified path, such as if the path is invalid
-        /// or inaccessible.</exception>
-        public DirectoryObject(string path) : base(path)
+        /// <remarks>The directory is monitored for file name, size, and last write time changes,
+        /// including changes in subdirectories. The watch interval is used to debounce rapid sequences of file system
+        /// events, reducing redundant processing.</remarks>
+        /// <param name="path">The full path of the directory to monitor. Cannot be null or empty.</param>
+        /// <param name="watchInterval">The interval, in milliseconds, to wait after the last detected change before processing events. Must be
+        /// greater than zero.</param>
+        /// <exception cref="IOException">Thrown if the directory watcher cannot be initialized for the specified path.</exception>
+        public DirectoryObject(string path, int watchInterval) : base(path)
         {
             path = FullPath; // Ensure base class has processed the path
+
+            // Ensure the Directory exists
+            Directory.CreateDirectory(path);
 
             try
             {
                 _watcher = new FileSystemWatcher(path)
                 {
-                    NotifyFilter = NotifyFilters.FileName
-                                 | NotifyFilters.DirectoryName 
-                                 | NotifyFilters.Attributes 
-                                 | NotifyFilters.Size 
-                                 | NotifyFilters.LastWrite 
-                                 | NotifyFilters.LastAccess 
-                                 | NotifyFilters.CreationTime 
-                                 | NotifyFilters.Security,
-
                     IncludeSubdirectories = true,
-                    EnableRaisingEvents = true
+                    NotifyFilter = NotifyFilters.FileName
+                                 | NotifyFilters.Size 
+                                 | NotifyFilters.LastWrite
                 };
 
                 // Event handlers
@@ -56,6 +63,11 @@ namespace Rheo.Storage
                 _watcher.Changed += Watcher_Changed;
                 _watcher.Created += Watcher_Changed;
                 _watcher.Deleted += Watcher_Changed;
+
+                _watcher.EnableRaisingEvents = true;
+
+                // Debounce timer: waits <watchInterval> milliseconds after last event before processing
+                _debounceTimer = new Timer(OnDebounceTimerTick, _changedFiles, Timeout.Infinite, watchInterval);
             }
             catch (Exception ex)
             {
@@ -68,7 +80,7 @@ namespace Rheo.Storage
         {
             get
             {
-                lock(Lock)
+                lock(StateLock)
                 {
                     return Path.GetFileName(FullPath)!;
                 }
@@ -276,11 +288,39 @@ namespace Rheo.Storage
         /// <inheritdoc/>
         public override void Dispose()
         {
-            // Dispose the FileSystemWatcher
-            _watcher.Dispose();
+            lock (StateLock)
+            {
+                // Check if already disposed
+                try { ThrowIfDisposed(); }
+                catch (ObjectDisposedException) { return; }
 
+                // Disable watcher events before disposing
+                if (_watcher != null)
+                {
+                    _watcher.EnableRaisingEvents = false;
+                    _watcher.Changed -= Watcher_Changed;
+                    _watcher.Created -= Watcher_Changed;
+                    _watcher.Deleted -= Watcher_Changed;
+                }
+
+                // Stop and dispose timer
+                _debounceTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+                _debounceTimer?.Dispose();
+                
+                // Dispose watcher
+                _watcher?.Dispose();
+            }
+
+            // Call base dispose (handles its own locking)
             base.Dispose();
+            
             GC.SuppressFinalize(this);
+        }
+
+        /// <inheritdoc/>
+        protected override DirectoryInformation CreateInformationInstance()
+        {
+            return new DirectoryInformation(FullPath);
         }
 
         /// <summary>
@@ -307,9 +347,23 @@ namespace Rheo.Storage
 
         private void Watcher_Changed(object sender, FileSystemEventArgs e)
         {
-            var newObject = new DirectoryObject(FullPath);
-            CopyFrom(newObject); // CopyFrom has its own lock
-            newObject.Dispose();
+            // Add the changed file to the collection
+            _changedFiles.Add(e.FullPath);
+
+            // Reset the debounce timer
+            _debounceTimer?.Change(2000, Timeout.Infinite);
+        }
+
+        private void OnDebounceTimerTick(object? state)
+        {
+            var changedFiles = (ConcurrentBag<string>)state!;
+            if (!changedFiles.IsEmpty)
+            {
+                var newObject = new DirectoryObject(FullPath);
+                CopyFrom(newObject); // CopyFrom has its own lock
+                newObject.Dispose();
+                changedFiles.Clear();
+            }
         }
     }
 }

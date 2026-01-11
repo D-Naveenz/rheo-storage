@@ -1,6 +1,4 @@
-﻿using System.Diagnostics;
-
-namespace Rheo.Storage.Test.Models
+﻿namespace Rheo.Storage.Test.Models
 {
     /// <summary>
     /// Represents a test file used for storing and managing test data within a test directory.

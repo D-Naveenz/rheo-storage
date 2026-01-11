@@ -31,7 +31,7 @@ namespace Rheo.Storage.Handling
             var bufferSize = source.GetBufferSize();
 
             // OPERATION
-            lock(source.Lock)
+            lock(source.StateLock)
             {
                 try
                 {
@@ -65,23 +65,28 @@ namespace Rheo.Storage.Handling
         /// </summary>
         /// <remarks>After successful deletion, the FileObject is disposed and should not be used. This
         /// method acquires a lock on the FileObject to ensure thread safety during the delete operation.</remarks>
-        /// <param name="file">The FileObject representing the file to delete. Cannot be null. The file must exist and be accessible for
+        /// <param name="source">The FileObject representing the file to delete. Cannot be null. The file must exist and be accessible for
         /// deletion.</param>
         /// <exception cref="InvalidOperationException">Thrown if the file cannot be deleted due to an I/O error or insufficient permissions.</exception>
-        public static void Delete(FileObject file)
+        public static void Delete(FileObject source)
         {
-            lock(file.Lock)
+            lock(source.StateLock)
             {
                 try
                 {
-                    File.Delete(file.FullPath);
+                    var path = source.FullPath; // Store path before disposing
 
                     // Dispose the current FileObject to ensure the stored information are correct
-                    file.Dispose();
+                    source.Dispose();
+                    File.Delete(path);
+                }
+                catch (FileNotFoundException)
+                {
+                    // File already deleted - consider as successful
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
-                    throw new InvalidOperationException($"Failed to delete file: {file.FullPath}", ex);
+                    throw new InvalidOperationException($"Failed to delete file: {source.FullPath}", ex);
                 }
             }
         }
@@ -114,7 +119,7 @@ namespace Rheo.Storage.Handling
             ProcessDestinationPath(ref destination, source.Name, overwrite);
 
             // OPERATION
-            lock(source.Lock)
+            lock(source.StateLock)
             {
                 try
                 {
@@ -181,11 +186,11 @@ namespace Rheo.Storage.Handling
         {
             // INITIALIZATION
             ThrowIfInvalidFileName(newName);
-            var destination = Path.Combine(source.ParentDirectory, newName);
+            var destination = source.ParentDirectory;
             ProcessDestinationPath(ref destination, newName, false);
 
             // OPERATION
-            lock(source.Lock)
+            lock(source.StateLock)
             {
                 try
                 {
@@ -227,7 +232,7 @@ namespace Rheo.Storage.Handling
             var destination = source.FullPath;
 
             // OPERATION
-            lock(source.Lock)
+            lock(source.StateLock)
             {
                 try
                 {
@@ -248,7 +253,6 @@ namespace Rheo.Storage.Handling
             }
 
             // FINALIZATION
-            source.Dispose();   // Dispose the current FileObject to ensure the stored information are correct
             return new FileObject(destination);
         }
 

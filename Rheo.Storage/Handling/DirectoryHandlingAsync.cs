@@ -138,10 +138,15 @@ namespace Rheo.Storage.Handling
             await _lock.WaitAsync(cancellationToken);
             try
             {
-                await Task.Run(() => Directory.Delete(source.FullPath, true), cancellationToken);
+                var path = source.FullPath; // Store path before disposing
 
                 // Dispose the source object to release resources
                 source.Dispose();
+                await Task.Run(() => Directory.Delete(path, true), cancellationToken);
+            }
+            catch (DirectoryNotFoundException)
+            {
+                // Directory already deleted; treat as successful deletion
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)  // ✅ Specific exception filter
             {
@@ -267,7 +272,7 @@ namespace Rheo.Storage.Handling
         {
             // INITIALIZATION
             ThrowIfInvalidDirectoryName(newName);
-            var destination = Path.Combine(source.ParentDirectory, newName);
+            var destination = source.ParentDirectory;
             ProcessDestinationPath(ref destination, newName, false);
             var _lock = source.Semaphore;
 

@@ -1,7 +1,7 @@
 ﻿using Rheo.Storage.Test.Models;
 using System.Diagnostics;
 
-namespace Rheo.Storage.Test.FileDefinitions
+namespace Rheo.Storage.Test
 {
     public class TestDirectoryFixture : IDisposable
     {
