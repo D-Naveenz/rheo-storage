@@ -5,10 +5,6 @@ VisualStudioVersion = 18.1.11312.151
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Storage", "Storage", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Extensions", "Extensions", "{40A78946-2F17-4748-AE86-A7504D4141F9}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rheo.Extensions.Hosting", "Rheo.Extensions.Hosting\Rheo.Extensions.Hosting.csproj", "{FCE22D3B-4B42-6B44-94EF-E1A309D6BFBB}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rheo.Storage", "Rheo.Storage\Rheo.Storage.csproj", "{9E1CBA1B-A477-9DC6-F224-5F882A2A57D0}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rheo.Storage.Test", "Rheo.Storage.Test\Rheo.Storage.Test.csproj", "{21A0ED6A-2949-5887-11B8-37663534CE30}"
@@ -24,8 +20,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		README.md = README.md
 	EndProjectSection
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Hosting", "Hosting", "{E39BD542-FD3F-48C6-962C-8CCF993DEB1F}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rheo.Storage.DefinitionsBuilder", "Rheo.Storage.DefinitionsBuilder\Rheo.Storage.DefinitionsBuilder.csproj", "{D56CC344-B474-40A4-9E2E-16476D357427}"
 EndProject
 Global
@@ -34,10 +28,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{FCE22D3B-4B42-6B44-94EF-E1A309D6BFBB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{FCE22D3B-4B42-6B44-94EF-E1A309D6BFBB}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{FCE22D3B-4B42-6B44-94EF-E1A309D6BFBB}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{FCE22D3B-4B42-6B44-94EF-E1A309D6BFBB}.Release|Any CPU.Build.0 = Release|Any CPU
 		{9E1CBA1B-A477-9DC6-F224-5F882A2A57D0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{9E1CBA1B-A477-9DC6-F224-5F882A2A57D0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9E1CBA1B-A477-9DC6-F224-5F882A2A57D0}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -55,10 +45,8 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{FCE22D3B-4B42-6B44-94EF-E1A309D6BFBB} = {E39BD542-FD3F-48C6-962C-8CCF993DEB1F}
 		{9E1CBA1B-A477-9DC6-F224-5F882A2A57D0} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{21A0ED6A-2949-5887-11B8-37663534CE30} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
-		{E39BD542-FD3F-48C6-962C-8CCF993DEB1F} = {40A78946-2F17-4748-AE86-A7504D4141F9}
 		{D56CC344-B474-40A4-9E2E-16476D357427} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
