@@ -1,7 +1,8 @@
 using Rheo.Storage.Analysing.Models;
+using Rheo.Storage.Analyzing.Models;
 using System.Text;
 
-namespace Rheo.Storage.Analysing
+namespace Rheo.Storage.Analyzing
 {
     /// <summary>
     /// Provides methods for detecting content types and distinguishing between text and binary files.
