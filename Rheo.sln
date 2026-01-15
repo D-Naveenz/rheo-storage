@@ -14,13 +14,18 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		.editorconfig = .editorconfig
 		.gitattributes = .gitattributes
 		.gitignore = .gitignore
-		build.ps1 = build.ps1
 		LICENSE.txt = LICENSE.txt
-		.github\workflows\nuget-publish-storage.yml = .github\workflows\nuget-publish-storage.yml
 		README.md = README.md
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Rheo.Storage.DefinitionsBuilder", "Rheo.Storage.DefinitionsBuilder\Rheo.Storage.DefinitionsBuilder.csproj", "{D56CC344-B474-40A4-9E2E-16476D357427}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Build", "Build", "{69AC9D7F-06F4-43BD-A3FF-BF7A920F108F}"
+	ProjectSection(SolutionItems) = preProject
+		build.ps1 = build.ps1
+		DotEnvLoader.psm1 = DotEnvLoader.psm1
+		.github\workflows\nuget-publish-storage.yml = .github\workflows\nuget-publish-storage.yml
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

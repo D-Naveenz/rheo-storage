@@ -14,7 +14,7 @@ namespace Rheo.Storage
     /// mechanisms.</remarks>
     /// <typeparam name="TObj">The type that implements the storage object, used for fluent return types in derived classes.</typeparam>
     /// <typeparam name="TInfo">The type that provides metadata information about the storage object, such as size, attributes, and timestamps.</typeparam>
-    public abstract class StorageObject<TObj, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TInfo> : IDisposable      // Using Curiously Recurring Template Pattern (CRTP)
+    public abstract class StorageObject<TObj, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TInfo> : IStorageObject      // Using Curiously Recurring Template Pattern (CRTP)
         where TObj : StorageObject<TObj, TInfo>
         where TInfo : IStorageInformation
     {
@@ -41,6 +41,43 @@ namespace Rheo.Storage
             {
                 Directory.CreateDirectory(ParentDirectory);
             }
+
+            // Subscribe to change events
+            Changed += OnStateChanged;
+        }
+
+        internal StorageObject(TInfo storageInformation)
+        {
+            _information = storageInformation;
+            FullPath = storageInformation.AbsolutePath;
+
+            // Subscribe to change events
+            Changed += OnStateChanged;
+        }
+
+        /// <summary>
+        /// Releases all resources used by the current instance of the class.
+        /// </summary>
+        /// <remarks>Call this method when you are finished using the object to release any resources it
+        /// is holding. After calling Dispose, the object should not be used. This method can be overridden in a derived
+        /// class to release additional resources.</remarks>
+        public virtual void Dispose()
+        {
+            lock (StateLock)
+            {
+                if (!_disposed)
+                {
+                    // Unsubscribe from events
+                    Changed -= OnStateChanged;
+
+                    // Clean up managed resources here, if any
+                    FullPath = string.Empty;
+                    _information = default;
+                    _disposed = true;
+                }
+            }
+
+            GC.SuppressFinalize(this);
         }
 
         #region Properties
@@ -78,6 +115,11 @@ namespace Rheo.Storage
         }
 
         /// <summary>
+        /// Gets metadata information about the storage object as the non-generic interface type.
+        /// </summary>
+        IStorageInformation IStorageObject.Information => Information;
+
+        /// <summary>
         /// Gets the name of the storage object, typically the file or directory name.
         /// </summary>
         public abstract string Name { get; }
@@ -105,6 +147,15 @@ namespace Rheo.Storage
         internal SemaphoreSlim Semaphore => _stateLockingSemaphore;
 
         #endregion
+
+        /// <summary>
+        /// Occurs when the storage content changes.
+        /// </summary>
+        /// <remarks>Subscribers are notified whenever an item is added, removed, or updated in the
+        /// storage. The event provides details about the change through the <see cref="StorageChangedEventArgs"/>
+        /// parameter. This event is typically raised on the thread where the change occurs; callers should ensure
+        /// thread safety when handling the event.</remarks>
+        public event EventHandler<StorageChangedEventArgs>? Changed;
 
         #region Handling Methods
         /// <summary>
@@ -160,8 +211,7 @@ namespace Rheo.Storage
         /// </summary>
         /// <param name="destination">The destination path where the object will be moved.</param>
         /// <param name="overwrite">true to overwrite the destination if it exists; otherwise, false.</param>
-        /// <returns>A new instance of <typeparamref name="TObj"/> representing the moved object.</returns>
-        public abstract TObj Move(string destination, bool overwrite);
+        public abstract void Move(string destination, bool overwrite);
 
         /// <summary>
         /// Moves the storage object to the specified destination path with progress reporting, optionally overwriting the destination if it exists.
@@ -169,8 +219,7 @@ namespace Rheo.Storage
         /// <param name="destination">The destination path where the object will be moved.</param>
         /// <param name="progress">An optional progress reporter for move progress.</param>
         /// <param name="overwrite">true to overwrite the destination if it exists; otherwise, false.</param>
-        /// <returns>A new instance of <typeparamref name="TObj"/> representing the moved object.</returns>
-        public abstract TObj Move(string destination, IProgress<StorageProgress>? progress, bool overwrite = false);
+        public abstract void Move(string destination, IProgress<StorageProgress>? progress, bool overwrite = false);
 
         /// <summary>
         /// Asynchronously moves the storage object to the specified destination path, optionally overwriting the destination if it exists.
@@ -178,8 +227,8 @@ namespace Rheo.Storage
         /// <param name="destination">The destination path where the object will be moved.</param>
         /// <param name="overwrite">true to overwrite the destination if it exists; otherwise, false.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-        /// <returns>A task representing the asynchronous move operation. The result is a new instance of <typeparamref name="TObj"/> representing the moved object.</returns>
-        public abstract Task<TObj> MoveAsync(string destination, bool overwrite, CancellationToken cancellationToken = default);
+        /// <returns>A task representing the asynchronous move operation.</returns>
+        public abstract Task MoveAsync(string destination, bool overwrite, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Asynchronously moves the storage object to the specified destination path with progress reporting, optionally overwriting the destination if it exists.
@@ -188,8 +237,8 @@ namespace Rheo.Storage
         /// <param name="progress">An optional progress reporter for move progress.</param>
         /// <param name="overwrite">true to overwrite the destination if it exists; otherwise, false.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-        /// <returns>A task representing the asynchronous move operation. The result is a new instance of <typeparamref name="TObj"/> representing the moved object.</returns>
-        public abstract Task<TObj> MoveAsync(string destination, IProgress<StorageProgress>? progress, bool overwrite = false, CancellationToken cancellationToken = default);
+        /// <returns>A task representing the asynchronous move operation.</returns>
+        public abstract Task MoveAsync(string destination, IProgress<StorageProgress>? progress, bool overwrite = false, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Renames the current object to the specified name.
@@ -206,23 +255,6 @@ namespace Rheo.Storage
         public abstract Task RenameAsync(string newName, CancellationToken cancellationToken = default);
 
         #endregion
-
-        /// <summary>
-        /// Copies the information and full path from the specified source object to the current instance.
-        /// </summary>
-        /// <param name="source">The source <see cref="StorageObject{TObj, TInfo}"/> from which to copy information and full path. Cannot be
-        /// null.</param>
-        public virtual void CopyFrom(StorageObject<TObj, TInfo> source)
-        {
-            ThrowIfDisposed();
-            ArgumentNullException.ThrowIfNull(source);
-
-            lock (StateLock)  // Protect state mutation
-            {
-                Information = source.Information;
-                FullPath = source.FullPath;
-            }
-        }
 
         /// <summary>
         /// Calculates the recommended buffer size based on the current storage information.
@@ -253,28 +285,6 @@ namespace Rheo.Storage
         }
 
         /// <summary>
-        /// Releases all resources used by the current instance of the class.
-        /// </summary>
-        /// <remarks>Call this method when you are finished using the object to release any resources it
-        /// is holding. After calling Dispose, the object should not be used. This method can be overridden in a derived
-        /// class to release additional resources.</remarks>
-        public virtual void Dispose()
-        {
-            lock (StateLock)
-            {
-                if (!_disposed)
-                {
-                    // Clean up managed resources here, if any
-                    FullPath = string.Empty;
-                    _information = default;
-                    _disposed = true;
-                }
-            }
-
-            GC.SuppressFinalize(this);
-        }
-
-        /// <summary>
         /// Throws an <see cref="ObjectDisposedException"/> if this storage object has been disposed.
         /// </summary>
         /// <exception cref="ObjectDisposedException">Thrown if the object has already been disposed.</exception>
@@ -292,30 +302,6 @@ namespace Rheo.Storage
             }
 
             return Information.ToString()!;
-        }
-
-        /// <summary>
-        /// Determines whether the specified destination path is located on the same root (drive or volume) as the
-        /// current path.
-        /// </summary>
-        /// <remarks>If the root of either path cannot be determined (for example, if the path is
-        /// invalid), the method returns false.</remarks>
-        /// <param name="destpath">The destination path to compare with the current path. Can be a relative or absolute path.</param>
-        /// <returns>true if the destination path is on the same root as the current path; otherwise, false.</returns>
-        internal bool IsInTheSameRoot(string destpath)
-        {
-            try
-            {
-                var drive1 = Path.GetPathRoot(Path.GetFullPath(FullPath));
-                var drive2 = Path.GetPathRoot(Path.GetFullPath(destpath));
-
-                return string.Equals(drive1, drive2, StringComparison.OrdinalIgnoreCase);
-            }
-            catch
-            {
-                // If we can't determine, assume different volumes
-                return false;
-            }
         }
 
         /// <summary>
@@ -358,6 +344,47 @@ namespace Rheo.Storage
             var fullPath = Path.GetFullPath(path);
 
             return fullPath;
+        }
+
+        internal bool IsInTheSameRoot(string destpath)
+        {
+            try
+            {
+                var drive1 = Path.GetPathRoot(Path.GetFullPath(FullPath));
+                var drive2 = Path.GetPathRoot(Path.GetFullPath(destpath));
+
+                return string.Equals(drive1, drive2, StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                // If we can't determine, assume different volumes
+                return false;
+            }
+        }
+
+        internal void RaiseChanged(StorageChangeType changeType, TInfo? newInformation)
+        {
+            Changed?.Invoke(this, new StorageChangedEventArgs(changeType, newInformation));
+        }
+
+        private void OnStateChanged(object? sender, StorageChangedEventArgs e)
+        {
+            ThrowIfDisposed();
+
+            if (e.ChangeType != StorageChangeType.Deleted && e.NewInfo is not null)
+            {
+                lock (StateLock)
+                {
+                    // Update information and path on modification or relocation
+                    Information = (TInfo)e.NewInfo;
+                    FullPath = Information.AbsolutePath;
+                }
+            }
+            else if (e.ChangeType == StorageChangeType.Deleted)
+            {
+                // Dispose the object if it has been deleted
+                Dispose();
+            }
         }
 
         /// <summary>

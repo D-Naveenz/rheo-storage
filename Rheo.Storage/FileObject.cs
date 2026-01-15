@@ -31,6 +31,10 @@ namespace Rheo.Storage
             using var fileStream = File.Open(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite);
         }
 
+        internal FileObject(FileInformation information) : base(information)
+        {
+        }
+
         /// <inheritdoc/>
         public override string Name
         {
@@ -47,29 +51,32 @@ namespace Rheo.Storage
         public override FileObject Copy(string destination, bool overwrite)
         {
             ThrowIfDisposed();
-            return FileHandling.Copy(this, destination, overwrite);
+            var info = FileHandling.Copy(this, destination, overwrite);
+            return new FileObject(info);
         }
 
         /// <inheritdoc/>
         public override FileObject Copy(string destination, IProgress<StorageProgress>? progress, bool overwrite = false)
         {
             ThrowIfDisposed();
-            return FileHandling.Copy(this, destination, overwrite, progress);
+            var info = FileHandling.Copy(this, destination, overwrite, progress);
+            return new FileObject(info);
         }
 
         /// <inheritdoc/>
-        public override Task<FileObject> CopyAsync(string destination, bool overwrite, CancellationToken cancellationToken = default)
+        public override async Task<FileObject> CopyAsync(string destination, bool overwrite, CancellationToken cancellationToken = default)
         {
             ThrowIfDisposed();
-
-            return FileHandling.CopyAsync(this, destination, overwrite, null, cancellationToken);
+            var info = await FileHandling.CopyAsync(this, destination, overwrite, null, cancellationToken);
+            return new FileObject(info);
         }
 
         /// <inheritdoc/>
-        public override Task<FileObject> CopyAsync(string destination, IProgress<StorageProgress>? progress, bool overwrite = false, CancellationToken cancellationToken = default)
+        public override async Task<FileObject> CopyAsync(string destination, IProgress<StorageProgress>? progress, bool overwrite = false, CancellationToken cancellationToken = default)
         {
             ThrowIfDisposed();
-            return FileHandling.CopyAsync(this, destination, overwrite, progress, cancellationToken);
+            var info = await FileHandling.CopyAsync(this, destination, overwrite, progress, cancellationToken);
+            return new FileObject(info);
         }
 
         /// <inheritdoc/>
@@ -87,31 +94,31 @@ namespace Rheo.Storage
         }
 
         /// <inheritdoc/>
-        public override FileObject Move(string destination, bool overwrite)
+        public override void Move(string destination, bool overwrite)
         {
             ThrowIfDisposed();
-            return FileHandling.Move(this, destination, overwrite);
+            FileHandling.Move(this, destination, overwrite);
         }
 
         /// <inheritdoc/>
-        public override FileObject Move(string destination, IProgress<StorageProgress>? progress, bool overwrite = false)
+        public override void Move(string destination, IProgress<StorageProgress>? progress, bool overwrite = false)
         {
             ThrowIfDisposed();
-            return FileHandling.Move(this, destination, overwrite, progress);
+            FileHandling.Move(this, destination, overwrite, progress);
         }
 
         /// <inheritdoc/>
-        public override Task<FileObject> MoveAsync(string destination, bool overwrite, CancellationToken cancellationToken = default)
+        public override async Task MoveAsync(string destination, bool overwrite, CancellationToken cancellationToken = default)
         {
             ThrowIfDisposed();
-            return FileHandling.MoveAsync(this, destination, overwrite, null, cancellationToken);
+            await FileHandling.MoveAsync(this, destination, overwrite, null, cancellationToken);
         }
 
         /// <inheritdoc/>
-        public override Task<FileObject> MoveAsync(string destination, IProgress<StorageProgress>? progress, bool overwrite = false, CancellationToken cancellationToken = default)
+        public override async Task MoveAsync(string destination, IProgress<StorageProgress>? progress, bool overwrite = false, CancellationToken cancellationToken = default)
         {
             ThrowIfDisposed();
-            return FileHandling.MoveAsync(this, destination, overwrite, progress, cancellationToken);
+            await FileHandling.MoveAsync(this, destination, overwrite, progress, cancellationToken);
         }
 
         /// <inheritdoc/>
@@ -120,9 +127,7 @@ namespace Rheo.Storage
             ThrowIfDisposed();
 
             // ✅ NO LOCK - FileHandling.Rename already locks
-            var newObj = FileHandling.Rename(this, newName);
-            CopyFrom(newObj);  // CopyFrom has its own lock
-            newObj.Dispose();
+            FileHandling.Rename(this, newName);
         }
 
         /// <inheritdoc/>
@@ -131,10 +136,7 @@ namespace Rheo.Storage
             ThrowIfDisposed();
 
             // ❌ REMOVE THE LOCK - FileHandling.RenameAsync already locks!
-            var newObj = await FileHandling.RenameAsync(this, newName, cancellationToken);
-            
-            CopyFrom(newObj);   // CopyFrom has its own lock
-            newObj.Dispose();
+            await FileHandling.RenameAsync(this, newName, cancellationToken);
         }
 
         /// <summary>
@@ -145,9 +147,7 @@ namespace Rheo.Storage
             ThrowIfDisposed();
 
             // ✅ NO LOCK - FileHandling.Write already locks
-            var newObj = FileHandling.Write(this, stream, overwrite, null);
-            CopyFrom(newObj);
-            newObj.Dispose();
+            FileHandling.Write(this, stream, overwrite, null);
         }
 
         /// <summary>
@@ -158,9 +158,7 @@ namespace Rheo.Storage
             ThrowIfDisposed();
 
             // ✅ NO LOCK - FileHandling.Write already locks
-            var newObj = FileHandling.Write(this, stream, overwrite, progress);
-            CopyFrom(newObj);
-            newObj.Dispose();
+            FileHandling.Write(this, stream, overwrite, progress);
         }
 
         /// <summary>
@@ -180,10 +178,7 @@ namespace Rheo.Storage
             ThrowIfDisposed();
 
             // ❌ REMOVE THE LOCK - FileHandling.WriteAsync already locks!
-            var newObj = await FileHandling.WriteAsync(this, stream, overwrite, null, cancellationToken);
-
-            CopyFrom(newObj);   // CopyFrom has its own lock
-            newObj.Dispose();
+            await FileHandling.WriteAsync(this, stream, overwrite, null, cancellationToken);
         }
 
         /// <summary>
@@ -206,10 +201,7 @@ namespace Rheo.Storage
             ThrowIfDisposed();
 
             // ❌ REMOVE THE LOCK - FileHandling.WriteAsync already locks!
-            var newObj = await FileHandling.WriteAsync(this, stream, overwrite, progress, cancellationToken);
-
-            CopyFrom(newObj);   // CopyFrom has its own lock
-            newObj.Dispose();
+            await FileHandling.WriteAsync(this, stream, overwrite, progress, cancellationToken);
         }
 
         /// <inheritdoc/>

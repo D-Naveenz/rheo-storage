@@ -80,6 +80,36 @@ namespace Rheo.Storage
             }
         }
 
+        internal DirectoryObject(DirectoryInformation information): base(information)
+        {
+            try
+            {
+                _watcher = new FileSystemWatcher(information.AbsolutePath)
+                {
+                    IncludeSubdirectories = true,
+                    NotifyFilter = NotifyFilters.FileName
+                                 | NotifyFilters.Size
+                                 | NotifyFilters.LastWrite
+                };
+
+                // Event handlers
+                // We need a file system watcher to monitor changes in the directory.
+                // But we only need to moniter if only affects the directory properties (counts, size, etc.)
+                _watcher.Changed += Watcher_Changed;
+                _watcher.Created += Watcher_Changed;
+                _watcher.Deleted += Watcher_Changed;
+
+                _watcher.EnableRaisingEvents = true;
+
+                // Debounce timer: waits <watchInterval> milliseconds after last event before processing
+                _debounceTimer = new Timer(OnDebounceTimerTick, _changedFiles, Timeout.Infinite, DefaultWatchInterval);
+            }
+            catch (Exception ex)
+            {
+                throw new IOException($"Failed to initialize FileSystemWatcher for directory at path: {information.AbsolutePath}", ex);
+            }
+        }
+
         /// <inheritdoc/>
         public override string Name
         {
@@ -202,28 +232,32 @@ namespace Rheo.Storage
         public override DirectoryObject Copy(string destination, bool overwrite)
         {
             ThrowIfDisposed();
-            return DirectoryHandling.Copy(this, destination, overwrite);
+            var info = DirectoryHandling.Copy(this, destination, overwrite);
+            return new DirectoryObject(info);
         }
 
         /// <inheritdoc/>
         public override DirectoryObject Copy(string destination, IProgress<StorageProgress>? progress, bool overwrite = false)
         {
             ThrowIfDisposed();
-            return DirectoryHandling.Copy(this, destination, overwrite, progress);
+            var info = DirectoryHandling.Copy(this, destination, overwrite, progress);
+            return new DirectoryObject(info);
         }
 
         /// <inheritdoc/>
-        public override Task<DirectoryObject> CopyAsync(string destination, bool overwrite, CancellationToken cancellationToken = default)
+        public override async Task<DirectoryObject> CopyAsync(string destination, bool overwrite, CancellationToken cancellationToken = default)
         {
             ThrowIfDisposed();
-            return DirectoryHandling.CopyAsync(this, destination, overwrite, null, cancellationToken);
+            var info = await DirectoryHandling.CopyAsync(this, destination, overwrite, null, cancellationToken);
+            return new DirectoryObject(info);
         }
 
         /// <inheritdoc/>
-        public override Task<DirectoryObject> CopyAsync(string destination, IProgress<StorageProgress>? progress, bool overwrite = false, CancellationToken cancellationToken = default)
+        public override async Task<DirectoryObject> CopyAsync(string destination, IProgress<StorageProgress>? progress, bool overwrite = false, CancellationToken cancellationToken = default)
         {
             ThrowIfDisposed();
-            return DirectoryHandling.CopyAsync(this, destination, overwrite, progress, cancellationToken);
+            var info = await DirectoryHandling.CopyAsync(this, destination, overwrite, progress, cancellationToken);
+            return new DirectoryObject(info);
         }
 
         /// <inheritdoc/>
@@ -241,28 +275,28 @@ namespace Rheo.Storage
         }
 
         /// <inheritdoc/>
-        public override DirectoryObject Move(string destination, bool overwrite)
+        public override void Move(string destination, bool overwrite)
         {
             ThrowIfDisposed();
-            return DirectoryHandling.Move(this, destination, overwrite);
+            DirectoryHandling.Move(this, destination, overwrite);
         }
 
         /// <inheritdoc/>
-        public override DirectoryObject Move(string destination, IProgress<StorageProgress>? progress, bool overwrite = false)
+        public override void Move(string destination, IProgress<StorageProgress>? progress, bool overwrite = false)
         {
             ThrowIfDisposed();
-            return DirectoryHandling.Move(this, destination, overwrite, progress);
+            DirectoryHandling.Move(this, destination, overwrite, progress);
         }
 
         /// <inheritdoc/>
-        public override Task<DirectoryObject> MoveAsync(string destination, bool overwrite, CancellationToken cancellationToken = default)
+        public override Task MoveAsync(string destination, bool overwrite, CancellationToken cancellationToken = default)
         {
             ThrowIfDisposed();
             return DirectoryHandling.MoveAsync(this, destination, overwrite, null, cancellationToken);
         }
 
         /// <inheritdoc/>
-        public override Task<DirectoryObject> MoveAsync(string destination, IProgress<StorageProgress>? progress, bool overwrite = false, CancellationToken cancellationToken = default)
+        public override Task MoveAsync(string destination, IProgress<StorageProgress>? progress, bool overwrite = false, CancellationToken cancellationToken = default)
         {
             ThrowIfDisposed();
             return DirectoryHandling.MoveAsync(this, destination, overwrite, progress, cancellationToken);
@@ -274,9 +308,7 @@ namespace Rheo.Storage
             ThrowIfDisposed();
 
             // ✅ NO LOCK - FileHandling.Rename already locks
-            var newObject = DirectoryHandling.Rename(this, newName);
-            CopyFrom(newObject); // CopyFrom has its own lock
-            newObject.Dispose();
+            DirectoryHandling.Rename(this, newName);
         }
 
         /// <inheritdoc/>
@@ -285,9 +317,7 @@ namespace Rheo.Storage
             ThrowIfDisposed();
 
             // ✅ NO LOCK - FileHandling.Rename already locks
-            var newObject = await DirectoryHandling.RenameAsync(this, newName, cancellationToken);
-            CopyFrom(newObject); // CopyFrom has its own lock
-            newObject.Dispose();
+            await DirectoryHandling.RenameAsync(this, newName, cancellationToken);
         }
 
         /// <inheritdoc/>
@@ -364,9 +394,8 @@ namespace Rheo.Storage
             var changedFiles = (ConcurrentBag<string>)state!;
             if (!changedFiles.IsEmpty)
             {
-                var newObject = new DirectoryObject(FullPath);
-                CopyFrom(newObject); // CopyFrom has its own lock
-                newObject.Dispose();
+                var newObject = new DirectoryInformation(FullPath);
+                RaiseChanged(StorageChangeType.Modified, newObject);
                 changedFiles.Clear();
             }
         }

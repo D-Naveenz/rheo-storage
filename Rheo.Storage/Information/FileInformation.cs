@@ -1,6 +1,5 @@
 ﻿using Rheo.Storage.Analyzing;
 using Rheo.Storage.Analyzing.Models.Result;
-using Rheo.Storage.Contracts;
 
 namespace Rheo.Storage.Information
 {
@@ -99,7 +98,7 @@ namespace Rheo.Storage.Information
         /// <summary>
         /// The file extension (including the dot), if available, as determined by the file name or path.
         /// </summary>
-        public string? Extension => Path.GetExtension(_absPath);
+        public string? Extension => Path.GetExtension(AbsolutePath);
 
         /// <summary>
         /// The actual extension determined by file content analysis.
@@ -124,7 +123,7 @@ namespace Rheo.Storage.Information
             {
                 return false;
             }
-            return string.Equals(_absPath, other._absPath, StringComparison.OrdinalIgnoreCase) &&
+            return string.Equals(AbsolutePath, other.AbsolutePath, StringComparison.OrdinalIgnoreCase) &&
                    Size == other.Size &&
                    ActualExtension == other.ActualExtension &&
                    MimeType.Equals(other.MimeType);
@@ -139,7 +138,7 @@ namespace Rheo.Storage.Information
         /// <inheritdoc/>
         public override int GetHashCode()
         {
-            return HashCode.Combine(_absPath.ToLowerInvariant(), Size, ActualExtension, MimeType);
+            return HashCode.Combine(AbsolutePath.ToLowerInvariant(), Size, ActualExtension, MimeType);
         }
 
         /// <inheritdoc/>

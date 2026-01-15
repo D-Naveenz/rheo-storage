@@ -1,5 +1,4 @@
-﻿using Rheo.Storage.Contracts;
-using System.Security;
+﻿using System.Security;
 
 namespace Rheo.Storage.Information
 {
@@ -95,7 +94,7 @@ namespace Rheo.Storage.Information
         {
             if (other is null)
                 return false;
-            return string.Equals(_absPath, other._absPath, StringComparison.OrdinalIgnoreCase) &&
+            return string.Equals(AbsolutePath, other.AbsolutePath, StringComparison.OrdinalIgnoreCase) &&
                    NoOfFiles == other.NoOfFiles &&
                    NoOfDirectories == other.NoOfDirectories;
         }
@@ -109,7 +108,7 @@ namespace Rheo.Storage.Information
         /// <inheritdoc/>
         public override int GetHashCode()
         {
-            return HashCode.Combine(_absPath.ToLowerInvariant(), NoOfFiles, NoOfDirectories);
+            return HashCode.Combine(AbsolutePath.ToLowerInvariant(), NoOfFiles, NoOfDirectories);
         }
 
         /// <inheritdoc/>
