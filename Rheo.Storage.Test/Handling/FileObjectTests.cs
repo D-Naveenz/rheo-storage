@@ -169,14 +169,17 @@ public class FileObjectTests(ITestOutputHelper output, TestDirectoryFixture fixt
         // Arrange
         var sourceFile = await TestDirectory.CreateTestFileAsync(ResourceType.Text, cancellationToken: TestContext.Current.CancellationToken);
         var originalPath = sourceFile.FullPath;
+        var originalName = sourceFile.Name;
         var destDir = TestDirectory.CreateSubdirectory("move_dest");
 
         // Act
-        using var movedFile = sourceFile.Move(destDir.FullPath, overwrite: false);
+        sourceFile.Move(destDir.FullPath, overwrite: false);
 
         // Assert
         Assert.False(File.Exists(originalPath));
-        Assert.True(File.Exists(movedFile.FullPath));
+        Assert.True(File.Exists(sourceFile.FullPath));
+        Assert.Equal(originalName, sourceFile.Name);
+        Assert.Contains("move_dest", sourceFile.FullPath);
     }
 
     [Fact]
@@ -190,11 +193,11 @@ public class FileObjectTests(ITestOutputHelper output, TestDirectoryFixture fixt
         var progress = new Progress<StorageProgress>(p =>
         {
             progressReports.Add(p);
-            progressReported.SetResult(true);
+            progressReported.TrySetResult(true);
         });
 
         // Act
-        using var movedFile = sourceFile.Move(destDir.FullPath, progress, overwrite: false);
+        sourceFile.Move(destDir.FullPath, progress, overwrite: false);
 
         // Wait for progress callback to execute (with timeout)
         var completedInTime = await Task.WhenAny(
@@ -202,7 +205,7 @@ public class FileObjectTests(ITestOutputHelper output, TestDirectoryFixture fixt
 
         // Assert
         Assert.True(completedInTime, "Progress callback did not execute within timeout");
-        Assert.True(File.Exists(movedFile.FullPath));
+        Assert.True(File.Exists(sourceFile.FullPath));
         Assert.Single(progressReports); // Same volume move should report single progress update
     }
 
@@ -215,11 +218,12 @@ public class FileObjectTests(ITestOutputHelper output, TestDirectoryFixture fixt
         var destDir = TestDirectory.CreateSubdirectory("move_async_dest");
 
         // Act
-        using var movedFile = await sourceFile.MoveAsync(destDir.FullPath, overwrite: false, cancellationToken: TestContext.Current.CancellationToken);
+        await sourceFile.MoveAsync(destDir.FullPath, overwrite: false, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.False(File.Exists(originalPath));
-        Assert.True(File.Exists(movedFile.FullPath));
+        Assert.True(File.Exists(sourceFile.FullPath));
+        Assert.Contains("move_async_dest", sourceFile.FullPath);
     }
 
     #endregion
@@ -284,7 +288,7 @@ public class FileObjectTests(ITestOutputHelper output, TestDirectoryFixture fixt
 
         // Assert
         Assert.False(File.Exists(originalPath));
-        Assert.True(File.Exists(Path.Combine(TestDirectory.FullPath, newName)));
+        Assert.True(File.Exists(sourceFile.FullPath));
         Assert.Equal(newName, sourceFile.Name);
     }
 
@@ -316,7 +320,7 @@ public class FileObjectTests(ITestOutputHelper output, TestDirectoryFixture fixt
 
         // Assert
         Assert.False(File.Exists(originalPath));
-        Assert.True(File.Exists(Path.Combine(TestDirectory.FullPath, newName)));
+        Assert.True(File.Exists(sourceFile.FullPath));
         Assert.Equal(newName, sourceFile.Name);
     }
 
@@ -332,6 +336,7 @@ public class FileObjectTests(ITestOutputHelper output, TestDirectoryFixture fixt
         using var fileObj = new FileObject(filePath);
         var testData = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05 };
         using var stream = new MemoryStream(testData);
+        var originalSize = fileObj.Information.Size;
 
         // Act
         fileObj.Write(stream, overwrite: true);
@@ -339,6 +344,8 @@ public class FileObjectTests(ITestOutputHelper output, TestDirectoryFixture fixt
         // Assert
         var writtenData = File.ReadAllBytes(filePath);
         Assert.Equal(testData, writtenData);
+        Assert.NotEqual(originalSize, fileObj.Information.Size);
+        Assert.Equal(testData.Length, fileObj.Information.Size);
     }
 
     [Fact]
@@ -369,6 +376,7 @@ public class FileObjectTests(ITestOutputHelper output, TestDirectoryFixture fixt
         using var fileObj = new FileObject(filePath);
         var testData = new byte[] { 0xAA, 0xBB, 0xCC, 0xDD };
         using var stream = new MemoryStream(testData);
+        var originalSize = fileObj.Information.Size;
 
         // Act
         await fileObj.WriteAsync(stream, overwrite: true, cancellationToken: TestContext.Current.CancellationToken);
@@ -376,6 +384,8 @@ public class FileObjectTests(ITestOutputHelper output, TestDirectoryFixture fixt
         // Assert
         var writtenData = File.ReadAllBytes(filePath);
         Assert.Equal(testData, writtenData);
+        Assert.NotEqual(originalSize, fileObj.Information.Size);
+        Assert.Equal(testData.Length, fileObj.Information.Size);
     }
 
     [Fact]

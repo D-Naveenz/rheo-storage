@@ -285,15 +285,15 @@ public class DirectoryObjectTests(ITestOutputHelper output, TestDirectoryFixture
         var sourceDir = TestDirectory.CreateSubdirectory("move_source");
         await sourceDir.CreateTestFileAsync(ResourceType.Text, cancellationToken: TestContext.Current.CancellationToken);
         var originalPath = sourceDir.FullPath;
-
         var destParent = TestDirectory.CreateSubdirectory("move_dest_parent");
 
         // Act
-        using var movedDir = sourceDir.Move(destParent.FullPath, overwrite: false);
+        sourceDir.Move(destParent.FullPath, overwrite: false);
 
         // Assert
         Assert.False(Directory.Exists(originalPath));
-        Assert.True(Directory.Exists(movedDir.FullPath));
+        Assert.True(Directory.Exists(sourceDir.FullPath));
+        Assert.Contains("move_dest_parent", sourceDir.FullPath);
     }
 
     [Fact]
@@ -313,7 +313,7 @@ public class DirectoryObjectTests(ITestOutputHelper output, TestDirectoryFixture
         });
 
         // Act
-        using var movedDir = sourceDir.Move(destParent.FullPath, progress, overwrite: false);
+        sourceDir.Move(destParent.FullPath, progress, overwrite: false);
 
         // Wait for progress callback to execute (with timeout)
         var completedInTime = await Task.WhenAny(
@@ -321,7 +321,7 @@ public class DirectoryObjectTests(ITestOutputHelper output, TestDirectoryFixture
 
         // Assert
         Assert.True(completedInTime, "Progress callback did not execute within timeout");
-        Assert.True(Directory.Exists(movedDir.FullPath));
+        Assert.True(Directory.Exists(sourceDir.FullPath));
         Assert.Single(progressReports); // Same volume should report single update
     }
 
@@ -336,11 +336,12 @@ public class DirectoryObjectTests(ITestOutputHelper output, TestDirectoryFixture
         var destParent = TestDirectory.CreateSubdirectory("move_async_dest");
 
         // Act
-        using var movedDir = await sourceDir.MoveAsync(destParent.FullPath, overwrite: false, cancellationToken: TestContext.Current.CancellationToken);
+        await sourceDir.MoveAsync(destParent.FullPath, overwrite: false, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.False(Directory.Exists(originalPath));
-        Assert.True(Directory.Exists(movedDir.FullPath));
+        Assert.True(Directory.Exists(sourceDir.FullPath));
+        Assert.Contains("move_async_dest", sourceDir.FullPath);
     }
 
     #endregion
@@ -384,6 +385,7 @@ public class DirectoryObjectTests(ITestOutputHelper output, TestDirectoryFixture
     {
         // Arrange
         var originalPath = TestDirectory.FullPath;
+        var originalName = TestDirectory.Name;
         var newName = "renamed_dir";
 
         // Act
@@ -391,7 +393,8 @@ public class DirectoryObjectTests(ITestOutputHelper output, TestDirectoryFixture
 
         // Assert
         Assert.False(Directory.Exists(originalPath));
-        Assert.True(Directory.Exists(Path.Combine(TestDirectoryParent.FullPath, newName)));
+        Assert.True(Directory.Exists(TestDirectory.FullPath));
+        Assert.NotEqual(originalName, TestDirectory.Name);
         Assert.Equal(newName, TestDirectory.Name);
     }
 
@@ -412,6 +415,7 @@ public class DirectoryObjectTests(ITestOutputHelper output, TestDirectoryFixture
     {
         // Arrange
         var originalPath = TestDirectory.FullPath;
+        var originalName = TestDirectory.Name;
         var newName = "renamed_async_dir";
 
         // Act
@@ -419,7 +423,8 @@ public class DirectoryObjectTests(ITestOutputHelper output, TestDirectoryFixture
 
         // Assert
         Assert.False(Directory.Exists(originalPath));
-        Assert.True(Directory.Exists(Path.Combine(TestDirectoryParent.FullPath, newName)));
+        Assert.True(Directory.Exists(TestDirectory.FullPath));
+        Assert.NotEqual(originalName, TestDirectory.Name);
         Assert.Equal(newName, TestDirectory.Name);
     }
 

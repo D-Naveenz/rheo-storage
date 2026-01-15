@@ -62,13 +62,16 @@ public class DirectoryObjectEdgeCaseTests(ITestOutputHelper output, TestDirector
     {
         // Arrange
         var sourceDir = TestDirectory.CreateSubdirectory();
+        var originalPath = sourceDir.FullPath;
         var newPath = Path.Combine(TestDirectory.FullPath, "new", "nested", "path");
 
         // Act
-        using var movedDir = sourceDir.Move(newPath, overwrite: false);
+        sourceDir.Move(newPath, overwrite: false);
 
         // Assert
-        Assert.True(Directory.Exists(movedDir.ParentDirectory));
+        Assert.False(Directory.Exists(originalPath));
+        Assert.True(Directory.Exists(sourceDir.ParentDirectory));
+        Assert.Contains("nested", sourceDir.FullPath);
     }
 
     [Fact]
@@ -180,11 +183,13 @@ public class DirectoryObjectEdgeCaseTests(ITestOutputHelper output, TestDirector
     {
         // Arrange
         var longName = new string('a', 100); // Long but valid name
+        var originalPath = TestDirectory.FullPath;
 
         // Act
         TestDirectory.Rename(longName);
 
         // Assert
+        Assert.False(Directory.Exists(originalPath));
         Assert.Equal(longName, TestDirectory.Name);
         Assert.True(Directory.Exists(TestDirectory.FullPath));
     }
@@ -201,11 +206,11 @@ public class DirectoryObjectEdgeCaseTests(ITestOutputHelper output, TestDirector
         await existingDir.CreateTestFileAsync(ResourceType.Binary, cancellationToken: TestContext.Current.CancellationToken);
 
         // Act
-        using var movedDir = sourceDir.Move(destParent.FullPath, overwrite: true);
+        sourceDir.Move(destParent.FullPath, overwrite: true);
 
         // Assert
-        Assert.True(Directory.Exists(movedDir.FullPath));
+        Assert.True(Directory.Exists(sourceDir.FullPath));
         // Should only have files from source
-        Assert.Single(movedDir.GetFiles());
+        Assert.Single(sourceDir.GetFiles());
     }
 }

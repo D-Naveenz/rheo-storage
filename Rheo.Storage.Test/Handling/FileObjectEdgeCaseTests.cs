@@ -62,7 +62,7 @@ public class FileObjectEdgeCaseTests(ITestOutputHelper output, TestDirectoryFixt
 
         // Assert
         Assert.True(File.Exists(filePath));
-        Assert.Equal(0, new FileInfo(filePath).Length);
+        Assert.Equal(0, fileObj.Information.Size);
     }
 
     [Fact]
@@ -90,15 +90,16 @@ public class FileObjectEdgeCaseTests(ITestOutputHelper output, TestDirectoryFixt
         var newDir = Path.Combine(TestDirectory.FullPath, "new", "nested", "dir");
 
         // Act
-        using var movedFile = fileObj.Move(newDir, overwrite: false);
+        fileObj.Move(newDir, overwrite: false);
 
         // Assert
         Assert.True(Directory.Exists(newDir));
-        Assert.True(File.Exists(movedFile.FullPath));
+        Assert.True(File.Exists(fileObj.FullPath));
+        Assert.Contains("nested", fileObj.FullPath);
     }
 
     [Fact]
-    public void Rename_ToExistingFileName_Resolves_Conflicts()
+    public void Rename_ToExistingFileName_ResolvesConflicts()
     {
         // Arrange
         var file1Path = Path.Combine(TestDirectory.FullPath, "file1.txt");
@@ -111,7 +112,8 @@ public class FileObjectEdgeCaseTests(ITestOutputHelper output, TestDirectoryFixt
         fileObj1.Rename("file2.txt");
 
         // Assert
-        Assert.True(File.Exists(Path.Combine(TestDirectory.FullPath, "file2 (1).txt")));
+        Assert.Equal("file2 (1).txt", fileObj1.Name);
+        Assert.True(File.Exists(fileObj1.FullPath));
     }
 
     [Fact]
@@ -128,28 +130,42 @@ public class FileObjectEdgeCaseTests(ITestOutputHelper output, TestDirectoryFixt
         await fileObj.WriteAsync(stream, overwrite: true, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
-        var fileInfo = new FileInfo(filePath);
-        Assert.Equal(largeData.Length, fileInfo.Length);
+        Assert.Equal(largeData.Length, fileObj.Information.Size);
     }
 
     [Fact]
-    public void CopyFrom_UpdatesInformation()
+    public void Move_UpdatesInformation()
     {
         // Arrange
-        var file1Path = Path.Combine(TestDirectory.FullPath, "file1.txt");
-        var file2Path = Path.Combine(TestDirectory.FullPath, "file2.txt");
-        File.WriteAllText(file1Path, "small");
-        File.WriteAllText(file2Path, "much larger content here");
-
-        using var fileObj1 = new FileObject(file1Path);
-        using var fileObj2 = new FileObject(file2Path);
-        var originalSize = fileObj1.Information.Size;
+        var filePath = Path.Combine(TestDirectory.FullPath, "move_info_test.txt");
+        File.WriteAllText(filePath, "content");
+        using var fileObj = new FileObject(filePath);
+        var originalPath = fileObj.FullPath;
+        var destDir = TestDirectory.CreateSubdirectory("move_dest");
 
         // Act
-        fileObj1.CopyFrom(fileObj2);
+        fileObj.Move(destDir.FullPath, overwrite: false);
 
         // Assert
-        Assert.NotEqual(originalSize, fileObj1.Information.Size);
-        Assert.Equal(file2Path, fileObj1.FullPath);
+        Assert.NotEqual(originalPath, fileObj.FullPath);
+        Assert.Equal(destDir.FullPath, fileObj.ParentDirectory);
+    }
+
+    [Fact]
+    public void Rename_UpdatesInformation()
+    {
+        // Arrange
+        var filePath = Path.Combine(TestDirectory.FullPath, "rename_test.txt");
+        File.WriteAllText(filePath, "content");
+        using var fileObj = new FileObject(filePath);
+        var originalName = fileObj.Name;
+        var newName = "renamed.txt";
+
+        // Act
+        fileObj.Rename(newName);
+
+        // Assert
+        Assert.NotEqual(originalName, fileObj.Name);
+        Assert.Equal(newName, fileObj.Name);
     }
 }
