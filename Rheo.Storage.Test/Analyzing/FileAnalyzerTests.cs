@@ -1,6 +1,6 @@
 using Rheo.Storage.Analyzing;
+using Rheo.Storage.Test.Extensions;
 using Rheo.Storage.Test.Models;
-using Rheo.Storage.Test.Utilities;
 
 namespace Rheo.Storage.Test.Analyzing
 {

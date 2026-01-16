@@ -1,5 +1,4 @@
-using Rheo.Storage.Test.Models;
-using Rheo.Storage.Test.Utilities;
+using Rheo.Storage.Test.Extensions;
 
 namespace Rheo.Storage.Test.Handling;
 
@@ -28,7 +27,7 @@ public class FileObjectEdgeCaseTests(ITestOutputHelper output, TestDirectoryFixt
     public async Task CopyAsync_MultipleSimultaneous_AllSucceed()
     {
         // Arrange
-        var sourceFile = await TestDirectory.CreateTestFileAsync(ResourceType.Binary, cancellationToken: TestContext.Current.CancellationToken);
+        var sourceFile = await TestDirectory.CreateTemplateFileAsync(ResourceType.Binary, cancellationToken: TestContext.Current.CancellationToken);
         var destDir = TestDirectory.CreateSubdirectory("concurrent_copy");
 
         // Act

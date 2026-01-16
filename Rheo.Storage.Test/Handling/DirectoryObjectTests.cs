@@ -1,5 +1,4 @@
-using Rheo.Storage.Test.Models;
-using Rheo.Storage.Test.Utilities;
+﻿using Rheo.Storage.Test.Extensions;
 
 namespace Rheo.Storage.Test.Handling;
 
@@ -52,11 +51,11 @@ public class DirectoryObjectTests(ITestOutputHelper output, TestDirectoryFixture
     #region GetFiles Tests
 
     [Fact]
-    public async Task GetFiles_ReturnsAllFiles()
+    public void GetFiles_ReturnsAllFiles()
     {
         // Arrange
-        await TestDirectory.CreateTestFileAsync(ResourceType.Text, cancellationToken: TestContext.Current.CancellationToken);
-        await TestDirectory.CreateTestFileAsync(ResourceType.Binary, cancellationToken: TestContext.Current.CancellationToken);
+        TestDirectory.CreateTemplateFile(ResourceType.Text); // ✅ Changed from CreateTemplateFileAsync
+        TestDirectory.CreateTemplateFile(ResourceType.Binary); // ✅ Changed from CreateTemplateFileAsync
 
         // Act
         var files = TestDirectory.GetFiles();
@@ -66,10 +65,10 @@ public class DirectoryObjectTests(ITestOutputHelper output, TestDirectoryFixture
     }
 
     [Fact]
-    public async Task GetFiles_WithSearchPattern_ReturnsMatchingFiles()
+    public void GetFiles_WithSearchPattern_ReturnsMatchingFiles()
     {
         // Arrange
-        await TestDirectory.CreateTestFileAsync(ResourceType.Text, cancellationToken: TestContext.Current.CancellationToken);
+        TestDirectory.CreateTemplateFile(ResourceType.Text);
         File.WriteAllText(Path.Combine(TestDirectory.FullPath, "test.log"), "log content");
 
         // Act
@@ -83,10 +82,10 @@ public class DirectoryObjectTests(ITestOutputHelper output, TestDirectoryFixture
     public async Task GetFiles_WithAllDirectories_ReturnsFilesFromSubdirectories()
     {
         // Arrange
-        await TestDirectory.CreateTestFileAsync(ResourceType.Text, cancellationToken: TestContext.Current.CancellationToken);
+        TestDirectory.CreateTemplateFile(ResourceType.Text);
 
         var subDir = TestDirectory.CreateSubdirectory("sub");
-        await subDir.CreateTestFileAsync(ResourceType.Binary, cancellationToken: TestContext.Current.CancellationToken);
+        subDir.CreateTemplateFile(ResourceType.Binary);
 
         // Act
         var allFiles = TestDirectory.GetFiles("*", SearchOption.AllDirectories);
@@ -100,10 +99,10 @@ public class DirectoryObjectTests(ITestOutputHelper output, TestDirectoryFixture
     #region GetFile Tests
 
     [Fact]
-    public async Task GetFile_WithValidRelativePath_ReturnsFileObject()
+    public void GetFile_WithValidRelativePath_ReturnsFileObject()
     {
         // Arrange
-        var testFile = await TestDirectory.CreateTestFileAsync(ResourceType.Text, cancellationToken: TestContext.Current.CancellationToken);
+        var testFile = TestDirectory.CreateTemplateFile(ResourceType.Text);
         var relativePath = Path.GetFileName(testFile.FullPath);
 
         // Act
@@ -206,9 +205,9 @@ public class DirectoryObjectTests(ITestOutputHelper output, TestDirectoryFixture
     {
         // Arrange
         var sourceDir = TestDirectory.CreateSubdirectory("copy_source");
-        await sourceDir.CreateTestFileAsync(ResourceType.Text, cancellationToken: TestContext.Current.CancellationToken);
+        sourceDir.CreateTemplateFile(ResourceType.Text);
         var subDir = sourceDir.CreateSubdirectory("sub");
-        await subDir.CreateTestFileAsync(ResourceType.Binary, cancellationToken: TestContext.Current.CancellationToken);
+        subDir.CreateTemplateFile(ResourceType.Binary);
 
         var destParent = TestDirectory.CreateSubdirectory("copy_dest_parent");
 
@@ -221,12 +220,12 @@ public class DirectoryObjectTests(ITestOutputHelper output, TestDirectoryFixture
     }
 
     [Fact]
-    public async Task Copy_PreservesEmptyDirectories()
+    public void Copy_PreservesEmptyDirectories()
     {
         // Arrange
         var sourceDir = TestDirectory.CreateSubdirectory("copy_empty_source");
         sourceDir.CreateSubdirectory("empty_sub");
-        await sourceDir.CreateTestFileAsync(ResourceType.Text, cancellationToken: TestContext.Current.CancellationToken);
+        sourceDir.CreateTemplateFile(ResourceType.Text);
 
         var destParent = TestDirectory.CreateSubdirectory("copy_empty_dest");
 
@@ -238,12 +237,12 @@ public class DirectoryObjectTests(ITestOutputHelper output, TestDirectoryFixture
     }
 
     [Fact]
-    public async Task Copy_WithProgress_ReportsProgress()
+    public void Copy_WithProgress_ReportsProgress()
     {
         // Arrange
         var sourceDir = TestDirectory.CreateSubdirectory("copy_progress_source");
-        await sourceDir.CreateTestFileAsync(ResourceType.Image, cancellationToken: TestContext.Current.CancellationToken);
-        await sourceDir.CreateTestFileAsync(ResourceType.Document, cancellationToken: TestContext.Current.CancellationToken);
+        sourceDir.CreateTemplateFile(ResourceType.Image);
+        sourceDir.CreateTemplateFile(ResourceType.Document);
 
         var destParent = TestDirectory.CreateSubdirectory("copy_progress_dest");
         var progressReports = new List<StorageProgress>();
@@ -261,8 +260,8 @@ public class DirectoryObjectTests(ITestOutputHelper output, TestDirectoryFixture
     {
         // Arrange
         var sourceDir = TestDirectory.CreateSubdirectory("copy_async_source");
-        await sourceDir.CreateTestFileAsync(ResourceType.Text, cancellationToken: TestContext.Current.CancellationToken);
-        await sourceDir.CreateTestFileAsync(ResourceType.Binary, cancellationToken: TestContext.Current.CancellationToken);
+        await sourceDir.CreateTemplateFileAsync(ResourceType.Text, cancellationToken: TestContext.Current.CancellationToken);
+        await sourceDir.CreateTemplateFileAsync(ResourceType.Binary, cancellationToken: TestContext.Current.CancellationToken);
 
         var destParent = TestDirectory.CreateSubdirectory("copy_async_dest");
 
@@ -279,11 +278,11 @@ public class DirectoryObjectTests(ITestOutputHelper output, TestDirectoryFixture
     #region Move Tests
 
     [Fact]
-    public async Task Move_WithValidDestination_MovesDirectory()
+    public void Move_WithValidDestination_MovesDirectory()
     {
         // Arrange
         var sourceDir = TestDirectory.CreateSubdirectory("move_source");
-        await sourceDir.CreateTestFileAsync(ResourceType.Text, cancellationToken: TestContext.Current.CancellationToken);
+        sourceDir.CreateTemplateFile(ResourceType.Text);
         var originalPath = sourceDir.FullPath;
         var destParent = TestDirectory.CreateSubdirectory("move_dest_parent");
 
@@ -297,11 +296,11 @@ public class DirectoryObjectTests(ITestOutputHelper output, TestDirectoryFixture
     }
 
     [Fact]
-    public async Task Move_SameVolume_PerformsQuickMove()
+    public void Move_SameVolume_PerformsQuickMove()
     {
         // Arrange
         var sourceDir = TestDirectory.CreateSubdirectory("move_same_source");
-        await sourceDir.CreateTestFileAsync(ResourceType.Binary, cancellationToken: TestContext.Current.CancellationToken);
+        sourceDir.CreateTemplateFile(ResourceType.Binary);
 
         var destParent = TestDirectory.CreateSubdirectory("move_same_dest");
         var progressReports = new List<StorageProgress>();
@@ -330,7 +329,7 @@ public class DirectoryObjectTests(ITestOutputHelper output, TestDirectoryFixture
     {
         // Arrange
         var sourceDir = TestDirectory.CreateSubdirectory("move_async_source");
-        await sourceDir.CreateTestFileAsync(ResourceType.Image, cancellationToken: TestContext.Current.CancellationToken);
+        await sourceDir.CreateTemplateFileAsync(ResourceType.Image, cancellationToken: TestContext.Current.CancellationToken);
         var originalPath = sourceDir.FullPath;
 
         var destParent = TestDirectory.CreateSubdirectory("move_async_dest");
@@ -349,10 +348,10 @@ public class DirectoryObjectTests(ITestOutputHelper output, TestDirectoryFixture
     #region Delete Tests
 
     [Fact]
-    public async Task Delete_RemovesDirectory()
+    public void Delete_RemovesDirectory()
     {
         // Arrange
-        await TestDirectory.CreateTestFileAsync(ResourceType.Text, cancellationToken: TestContext.Current.CancellationToken);
+        TestDirectory.CreateTemplateFile(ResourceType.Text);
         var dirPath = TestDirectory.FullPath;
 
         // Act
@@ -366,7 +365,7 @@ public class DirectoryObjectTests(ITestOutputHelper output, TestDirectoryFixture
     public async Task DeleteAsync_RemovesDirectory()
     {
         // Arrange
-        await TestDirectory.CreateTestFileAsync(ResourceType.Binary, cancellationToken: TestContext.Current.CancellationToken);
+        await TestDirectory.CreateTemplateFileAsync(ResourceType.Binary, cancellationToken: TestContext.Current.CancellationToken);
         var dirPath = TestDirectory.FullPath;
 
         // Act
@@ -443,10 +442,10 @@ public class DirectoryObjectTests(ITestOutputHelper output, TestDirectoryFixture
     }
 
     [Fact]
-    public async Task Information_ReturnsDirectoryInformation()
+    public void Information_ReturnsDirectoryInformation()
     {
         // Arrange
-        await TestDirectory.CreateTestFileAsync(ResourceType.Image, cancellationToken: TestContext.Current.CancellationToken);
+        TestDirectory.CreateTemplateFile(ResourceType.Image);
 
         // Act
         var info = TestDirectory.Information;
@@ -470,7 +469,7 @@ public class DirectoryObjectTests(ITestOutputHelper output, TestDirectoryFixture
         await Task.Delay(100, TestContext.Current.CancellationToken);
 
         // Act
-        await TestDirectory.CreateTestFileAsync(ResourceType.Text, cancellationToken: TestContext.Current.CancellationToken);
+        await TestDirectory.CreateTemplateFileAsync(ResourceType.Text, cancellationToken: TestContext.Current.CancellationToken);
 
         // Wait for debounce timer (2 seconds as per DirectoryObject implementation)
         await Task.Delay(2500, TestContext.Current.CancellationToken);

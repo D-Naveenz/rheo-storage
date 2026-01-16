@@ -1,5 +1,5 @@
 using Rheo.Storage.Information;
-using Rheo.Storage.Test.Utilities;
+using Rheo.Storage.Test.Extensions;
 
 namespace Rheo.Storage.Test.Information
 {

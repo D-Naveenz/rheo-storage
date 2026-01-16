@@ -37,6 +37,15 @@ namespace Rheo.Storage.Contracts
         bool IsDisposed { get; }
 
         /// <summary>
+        /// Occurs when the storage content changes.
+        /// </summary>
+        /// <remarks>Subscribers are notified whenever an item is added, removed, or updated in the
+        /// storage. The event provides details about the change through the <see cref="StorageChangedEventArgs"/>
+        /// parameter. This event is typically raised on the thread where the change occurs; callers should ensure
+        /// thread safety when handling the event.</remarks>
+        event EventHandler<StorageChangedEventArgs>? Changed;
+
+        /// <summary>
         /// Deletes the storage object from the file system.
         /// </summary>
         void Delete();

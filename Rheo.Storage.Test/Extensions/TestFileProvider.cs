@@ -1,7 +1,8 @@
-﻿using Rheo.Storage.Test.Models;
+﻿using Rheo.Storage.Extensions;
+using Rheo.Storage.Test.Models;
 using System.Text;
 
-namespace Rheo.Storage.Test.Utilities
+namespace Rheo.Storage.Test.Extensions
 {
     /// <summary>
     /// Provides utility methods for creating and retrieving test files of various resource types for use in automated
@@ -25,8 +26,8 @@ namespace Rheo.Storage.Test.Utilities
         /// <returns>A task that represents the asynchronous operation. The task result contains a TestFile instance representing
         /// the created file.</returns>
         /// <exception cref="ArgumentOutOfRangeException">Thrown if resourceType is not a valid value of the ResourceType enumeration.</exception>
-        public static async Task<TestFile> CreateTestFileAsync(
-            this TestDirectory testDirectory, 
+        public static async Task<TempFile> CreateTemplateFileAsync(
+            this TempDirectory testDirectory, 
             ResourceType resourceType, 
             CancellationToken cancellationToken = default
             )
@@ -45,20 +46,10 @@ namespace Rheo.Storage.Test.Utilities
             };
 
             // Create and return the TestFile instance
-            var file = new TestFile(filepath) 
-            { 
-                ResourceType = resourceType, 
-                TestDirectory = testDirectory 
-            };
-            await file.WriteAsync(resourceBytes, true, cancellationToken);
-
-            // Add the file to the test directory's collection
-            testDirectory.TestFiles.Add(file);
-
-            return file;
+            return await testDirectory.CreateFileAsync(resourceBytes, filepath, cancellationToken);
         }
 
-        public static TestFile CreateTestFile(this TestDirectory testDirectory, ResourceType resourceType)
+        public static TempFile CreateTemplateFile(this TempDirectory testDirectory, ResourceType resourceType)
         {
             byte[] resourceBytes;
             string filepath;
@@ -74,17 +65,7 @@ namespace Rheo.Storage.Test.Utilities
             };
 
             // Create and return the TestFile instance
-            var file = new TestFile(filepath)
-            {
-                ResourceType = resourceType,
-                TestDirectory = testDirectory
-            };
-            file.Write(resourceBytes, true);
-
-            // Add the file to the test directory's collection
-            testDirectory.TestFiles.Add(file);
-
-            return file;
+            return testDirectory.CreateFile(resourceBytes, filepath);
         }
 
         /// <summary>
@@ -308,5 +289,15 @@ namespace Rheo.Storage.Test.Utilities
             }
             return GetTestFilesPath();
         }
+    }
+
+    public enum ResourceType
+    {
+        Unknown,
+        Document,
+        Video,
+        Text,
+        Image,
+        Binary
     }
 }

@@ -1,5 +1,4 @@
-using Rheo.Storage.Test.Models;
-using Rheo.Storage.Test.Utilities;
+﻿using Rheo.Storage.Test.Extensions;
 
 namespace Rheo.Storage.Test.Handling;
 
@@ -23,13 +22,13 @@ public class DirectoryObjectEdgeCaseTests(ITestOutputHelper output, TestDirector
     }
 
     [Fact]
-    public async Task Copy_DeepHierarchy_PreservesStructure()
+    public void Copy_DeepHierarchy_PreservesStructure()
     {
         // Arrange
         var level1 = TestDirectory.CreateSubdirectory("level1");
         var level2 = level1.CreateSubdirectory("level2");
         var level3 = level2.CreateSubdirectory("level3");
-        await level3.CreateTestFileAsync(ResourceType.Text, cancellationToken: TestContext.Current.CancellationToken);
+        level3.CreateTemplateFile(ResourceType.Text);
 
         var destParent = TestDirectory.CreateSubdirectory("deep_dest");
 
@@ -82,7 +81,7 @@ public class DirectoryObjectEdgeCaseTests(ITestOutputHelper output, TestDirector
         // Create multiple large files to ensure operation takes time
         for (int i = 0; i < 5; i++)
         {
-            await sourceDir.CreateTestFileAsync(ResourceType.Video, cancellationToken: TestContext.Current.CancellationToken);
+            await sourceDir.CreateTemplateFileAsync(ResourceType.Video, cancellationToken: TestContext.Current.CancellationToken); // ✅ Kept async for async test
         }
 
         var destParent = TestDirectory.CreateSubdirectory("cancel_dest");
@@ -155,10 +154,10 @@ public class DirectoryObjectEdgeCaseTests(ITestOutputHelper output, TestDirector
     }
 
     [Fact]
-    public async Task Delete_WithReadOnlyFile_ThrowsInvalidOperationException()
+    public void Delete_WithReadOnlyFile_ThrowsInvalidOperationException()
     {
         // Arrange
-        var testFile = await TestDirectory.CreateTestFileAsync(ResourceType.Text, cancellationToken: TestContext.Current.CancellationToken);
+        var testFile = TestDirectory.CreateTemplateFile(ResourceType.Text);
 
         // Make file read-only
         var fileInfo = new FileInfo(testFile.FullPath)
@@ -195,15 +194,15 @@ public class DirectoryObjectEdgeCaseTests(ITestOutputHelper output, TestDirector
     }
 
     [Fact]
-    public async Task Move_WithOverwrite_ReplacesDestination()
+    public void Move_WithOverwrite_ReplacesDestination()
     {
         // Arrange
         var sourceDir = TestDirectory.CreateSubdirectory("move_overwrite_source");
-        await sourceDir.CreateTestFileAsync(ResourceType.Text, cancellationToken: TestContext.Current.CancellationToken);
+        sourceDir.CreateTemplateFile(ResourceType.Text);
 
         var destParent = TestDirectory.CreateSubdirectory("move_overwrite_parent");
         var existingDir = destParent.CreateSubdirectory(sourceDir.Name);
-        await existingDir.CreateTestFileAsync(ResourceType.Binary, cancellationToken: TestContext.Current.CancellationToken);
+        existingDir.CreateTemplateFile(ResourceType.Binary);
 
         // Act
         sourceDir.Move(destParent.FullPath, overwrite: true);
