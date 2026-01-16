@@ -1,4 +1,5 @@
 ﻿using Rheo.Storage.Test.Extensions;
+using System.Threading.Tasks;
 
 namespace Rheo.Storage.Test.Handling;
 
@@ -296,11 +297,11 @@ public class DirectoryObjectTests(ITestOutputHelper output, TestDirectoryFixture
     }
 
     [Fact]
-    public void Move_SameVolume_PerformsQuickMove()
+    public async Task Move_SameVolume_PerformsQuickMove()
     {
         // Arrange
         var sourceDir = TestDirectory.CreateSubdirectory("move_same_source");
-        sourceDir.CreateTemplateFile(ResourceType.Binary);
+        await sourceDir.CreateTemplateFileAsync(ResourceType.Binary, TestContext.Current.CancellationToken);
 
         var destParent = TestDirectory.CreateSubdirectory("move_same_dest");
         var progressReports = new List<StorageProgress>();

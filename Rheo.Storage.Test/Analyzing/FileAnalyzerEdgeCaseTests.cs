@@ -1,6 +1,5 @@
 using Rheo.Storage.Analyzing;
-using Rheo.Storage.Test.Models;
-using Rheo.Storage.Test.Utilities;
+using Rheo.Storage.Test.Extensions;
 
 namespace Rheo.Storage.Test.Analyzing
 {
@@ -25,13 +24,10 @@ namespace Rheo.Storage.Test.Analyzing
         }
 
         [Fact]
-        public async Task AnalyzeFile_WithMultipleMatchingDefinitions_RanksCorrectlyAsync()
+        public async Task AnalyzeFile_WithMultipleMatchingDefinitions_RanksCorrectly()
         {
             // Arrange: Create file that might match multiple definitions
-            var testFile = await TestDirectory.CreateTestFileAsync(
-                ResourceType.Document,
-                cancellationToken: TestContext.Current.CancellationToken
-                );
+            var testFile = TestDirectory.CreateTemplateFile(ResourceType.Document);
 
             // Act
             var result = FileAnalyzer.AnalyzeFile(testFile.FullPath);

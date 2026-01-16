@@ -1,5 +1,4 @@
 ﻿using Rheo.Storage.Extensions;
-using Rheo.Storage.Test.Models;
 using System.Text;
 
 namespace Rheo.Storage.Test.Extensions

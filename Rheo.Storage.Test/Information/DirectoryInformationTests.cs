@@ -1,6 +1,5 @@
 using Rheo.Storage.Information;
-using Rheo.Storage.Test.Models;
-using Rheo.Storage.Test.Utilities;
+using Rheo.Storage.Test.Extensions;
 
 namespace Rheo.Storage.Test.Information
 {
@@ -29,15 +28,15 @@ namespace Rheo.Storage.Test.Information
         public async Task NoOfFiles_WithMultipleFiles_ReturnsCorrectCountAsync()
         {
             // Arrange
-            await TestDirectory.CreateTestFileAsync(
+            await TestDirectory.CreateTemplateFileAsync(
                 ResourceType.Text,
                 cancellationToken: TestContext.Current.CancellationToken
                 );
-            await TestDirectory.CreateTestFileAsync(
+            await TestDirectory.CreateTemplateFileAsync(
                 ResourceType.Image,
                 cancellationToken: TestContext.Current.CancellationToken
                 );
-            _ = await TestDirectory.CreateTestFileAsync(
+            _ = await TestDirectory.CreateTemplateFileAsync(
                 ResourceType.Binary,
                 cancellationToken: TestContext.Current.CancellationToken
                 );
@@ -64,7 +63,7 @@ namespace Rheo.Storage.Test.Information
             var subDirPath = Path.Combine(TestDirectory.FullPath, "subdir");
             Directory.CreateDirectory(subDirPath);
 
-            await TestDirectory.CreateTestFileAsync(
+            await TestDirectory.CreateTemplateFileAsync(
                 ResourceType.Text,
                 cancellationToken: TestContext.Current.CancellationToken
                 );
@@ -115,11 +114,11 @@ namespace Rheo.Storage.Test.Information
         public async Task Size_WithMultipleFiles_ReturnsTotalSizeAsync()
         {
             // Arrange
-            var testFile1 = await TestDirectory.CreateTestFileAsync(
+            var testFile1 = await TestDirectory.CreateTemplateFileAsync(
                 ResourceType.Text,
                 cancellationToken: TestContext.Current.CancellationToken
                 );
-            var testFile2 = await TestDirectory.CreateTestFileAsync(
+            var testFile2 = await TestDirectory.CreateTemplateFileAsync(
                 ResourceType.Image,
                 cancellationToken: TestContext.Current.CancellationToken
                 );
@@ -145,7 +144,7 @@ namespace Rheo.Storage.Test.Information
             var subDirPath = Path.Combine(TestDirectory.FullPath, "subdir_size");
             Directory.CreateDirectory(subDirPath);
 
-            var rootFile = await TestDirectory.CreateTestFileAsync(
+            var rootFile = await TestDirectory.CreateTemplateFileAsync(
                 ResourceType.Text,
                 cancellationToken: TestContext.Current.CancellationToken
                 );
@@ -210,7 +209,7 @@ namespace Rheo.Storage.Test.Information
             var dirInfo1 = TestDirectory.Information;
 
             // Add a file to change the directory content
-            await TestDirectory.CreateTestFileAsync(
+            await TestDirectory.CreateTemplateFileAsync(
                 ResourceType.Text,
                 cancellationToken: TestContext.Current.CancellationToken
                 );
@@ -255,7 +254,7 @@ namespace Rheo.Storage.Test.Information
         public async Task ToString_IncludesAllCountsAsync()
         {
             // Arrange - Use isolated subdirectory to avoid interference from other tests
-            await TestDirectory.CreateTestFileAsync(
+            await TestDirectory.CreateTemplateFileAsync(
                 ResourceType.Text,
                 cancellationToken: TestContext.Current.CancellationToken
                 );
@@ -311,7 +310,7 @@ namespace Rheo.Storage.Test.Information
             var initialSize = dirInfo.Size;
 
             // Act - Add a file after construction
-            await TestDirectory.CreateTestFileAsync(
+            await TestDirectory.CreateTemplateFileAsync(
                 ResourceType.Binary,
                 cancellationToken: TestContext.Current.CancellationToken
                 );
