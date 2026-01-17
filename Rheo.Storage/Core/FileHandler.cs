@@ -1,43 +1,83 @@
 ﻿using System.Diagnostics;
+using Rheo.Storage.Contracts;
 using Rheo.Storage.Information;
 
-namespace Rheo.Storage.Handling
+namespace Rheo.Storage.Core
 {
-    internal static partial class FileHandling
+    /// <summary>
+    /// Provides an abstract base class for handling file operations, including copying, moving, renaming, deleting, and
+    /// writing file data, with support for progress reporting and change notifications.
+    /// </summary>
+    /// <remarks>FileHandler encapsulates core file management functionality and exposes methods for
+    /// manipulating files in a thread-safe manner. It maintains file metadata and raises events to notify changes such
+    /// as deletion, relocation, or modification. This class is intended to be subclassed for specialized file handling
+    /// scenarios and is not intended for direct instantiation outside of derived types.</remarks>
+    public abstract partial class FileHandler : StorageObject
     {
+        private FileInformation _information;
+
         /// <summary>
-        /// Copies the contents of the specified source file to a new file at the given destination path, optionally
-        /// overwriting an existing file and reporting progress.
+        /// Initializes a new instance of the FileHandler class for the specified file name or path.
         /// </summary>
-        /// <remarks>The copy operation is performed using buffered streams for efficient file transfer.
-        /// Progress is reported after each write if a progress reporter is provided. The method acquires a lock on the
-        /// source file to ensure thread safety during the operation.</remarks>
-        /// <param name="source">The source <see cref="FileObject"/> representing the file to copy. Must not be null.</param>
-        /// <param name="destination">The full path to the destination file. If the file exists and <paramref name="overwrite"/> is <see
-        /// langword="false"/>, an exception is thrown.</param>
+        /// <param name="fileNameOrPath">The name or full path of the file to be handled. This value determines which file the handler will operate
+        /// on.</param>
+        public FileHandler(string fileNameOrPath) : base(fileNameOrPath)
+        {
+            _information = new FileInformation(FullPath);
+        }
+
+        internal FileHandler(FileInformation info) : base(info.AbsolutePath)
+        {
+            _information = info;
+        }
+
+        /// <inheritdoc/>
+        public override IStorageInformation Information
+        {
+            get
+            {
+                ThrowIfDisposed();
+                return _information;
+            }
+            protected set
+            {
+                ThrowIfDisposed();
+                lock (StateLock)
+                {
+                    _information = (FileInformation)value;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Copies the current file to the specified destination path, optionally overwriting an existing file and
+        /// reporting progress.
+        /// </summary>
+        /// <param name="destination">The full path to the destination file. Must not be null or empty.</param>
         /// <param name="overwrite">A value indicating whether to overwrite the destination file if it already exists. If <see
-        /// langword="true"/>, the existing file will be replaced.</param>
-        /// <param name="progress">An optional progress reporter that receives updates on the number of bytes transferred and transfer rate
-        /// during the copy operation. May be null.</param>
-        /// <returns>A <see cref="FileInformation"/> object containing metadata about the newly created file at the destination path.</returns>
+        /// langword="false"/>, the operation will fail if the file exists.</param>
+        /// <param name="progress">An optional progress reporter that receives updates about the copy operation. If null, no progress is
+        /// reported.</param>
+        /// <returns>A <see cref="FileInformation"/> instance representing the copied file at the destination path.</returns>
         /// <exception cref="InvalidOperationException">Thrown if the copy operation fails due to I/O errors or insufficient permissions.</exception>
-        public static FileInformation Copy(
-            FileObject source,
+        internal FileInformation CopyInternal(
             string destination,
             bool overwrite,
             IProgress<StorageProgress>? progress = null)
         {
             // INITIALIZATION
-            ProcessDestinationPath(ref destination, source.Name, overwrite);
-            var bufferSize = source.GetBufferSize();
+            ProcessDestinationPath(ref destination, Name, overwrite);
+            var bufferSize = GetBufferSize();
 
             // OPERATION
-            lock(source.StateLock)
+            lock(StateLock)
             {
+                WaitForFileUnlock(FullPath);    // Ensure no other operations are in progress
+
                 try
                 {
                     using var sourceStream = new FileStream(
-                        source.FullPath,
+                        FullPath,
                         FileMode.Open,
                         FileAccess.Read,
                         FileShare.Read,
@@ -62,73 +102,74 @@ namespace Rheo.Storage.Handling
         }
 
         /// <summary>
-        /// Deletes the specified file from the file system and disposes the associated FileObject.
+        /// Deletes the underlying file and raises a change notification to indicate that the file has been deleted.
         /// </summary>
-        /// <remarks>After successful deletion, the FileObject is disposed and should not be used. This
-        /// method acquires a lock on the FileObject to ensure thread safety during the delete operation.</remarks>
-        /// <param name="source">The FileObject representing the file to delete. Cannot be null. The file must exist and be accessible for
-        /// deletion.</param>
+        /// <remarks>This method waits for any ongoing operations on the file to complete before
+        /// attempting deletion. If the file does not exist, a deletion notification is still raised. This method is
+        /// intended for internal use and is not thread-safe beyond its own locking mechanism.</remarks>
         /// <exception cref="InvalidOperationException">Thrown if the file cannot be deleted due to an I/O error or insufficient permissions.</exception>
-        public static void Delete(FileObject source)
+        internal void DeleteInternal()
         {
-            lock(source.StateLock)
+            lock(StateLock)
             {
+                WaitForFileUnlock(FullPath);    // Ensure no other operations are in progress
+
                 try
                 {
-                    var path = source.FullPath; // Store path before raising event
+                    var path = FullPath; // Store path before raising event
 
                     File.Delete(path);
                     
                     // Raise the Changed event to notify deletion
-                    source.RaiseChanged(StorageChangeType.Deleted, null);
+                    RaiseChanged(StorageChangeType.Deleted, null);
                 }
                 catch (FileNotFoundException)
                 {
                     // File already deleted - still raise the event
-                    source.RaiseChanged(StorageChangeType.Deleted, null);
+                    RaiseChanged(StorageChangeType.Deleted, null);
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
-                    throw new InvalidOperationException($"Failed to delete file: {source.FullPath}", ex);
+                    throw new InvalidOperationException($"Failed to delete file: {FullPath}", ex);
                 }
             }
         }
 
         /// <summary>
-        /// Moves the specified file to a new destination path, optionally overwriting an existing file and reporting
-        /// progress.
+        /// Moves the current file to the specified destination path, optionally overwriting an existing file and
+        /// reporting progress.
         /// </summary>
-        /// <remarks>If the source and destination are on the same storage volume, the move is performed
+        /// <remarks>If the source and destination are on the same volume, the move operation is performed
         /// as a fast directory entry update. For cross-volume moves, the file is copied to the destination and the
-        /// source is deleted. The source object's state is updated via the Changed event. Progress is reported only for the
-        /// final state of the operation.</remarks>
-        /// <param name="source">The file to move. Must not be null and must reference an existing file.</param>
-        /// <param name="destination">The destination path to move the file to. Cannot be null or empty. If the path refers to an existing file
-        /// and <paramref name="overwrite"/> is <see langword="false"/>, the operation will fail.</param>
+        /// source is deleted. The method raises a relocation event upon successful completion.</remarks>
+        /// <param name="destination">The full path to the destination file. Must be a valid file path and cannot be null or empty.</param>
         /// <param name="overwrite">Specifies whether to overwrite the destination file if it already exists. Set to <see langword="true"/> to
         /// overwrite; otherwise, <see langword="false"/>.</param>
-        /// <param name="progress">An optional progress reporter that receives updates about the move operation. May be null if progress
-        /// reporting is not required.</param>
-        /// <returns>A <see cref="FileInformation"/> object containing metadata about the file at the new location.</returns>
-        /// <exception cref="InvalidOperationException">Thrown if the move operation fails due to I/O errors or insufficient permissions.</exception>
-        public static FileInformation Move(
-            FileObject source,
+        /// <param name="progress">An optional progress reporter that receives updates about the move operation. If not specified, progress
+        /// will not be reported.</param>
+        /// <returns>A <see cref="FileInformation"/> object representing the file at its new location after the move operation
+        /// completes.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if the file cannot be moved to the specified destination due to I/O errors or insufficient
+        /// permissions.</exception>
+        internal FileInformation MoveInternal(
             string destination,
             bool overwrite,
             IProgress<StorageProgress>? progress = null)
         {
             // INITIALIZATION
-            ProcessDestinationPath(ref destination, source.Name, overwrite);
+            ProcessDestinationPath(ref destination, Name, overwrite);
 
             // OPERATION
-            lock(source.StateLock)
+            lock(StateLock)
             {
+                WaitForFileUnlock(FullPath);    // Ensure no other operations are in progress
+
                 try
                 {
-                    if (source.IsInTheSameRoot(destination))
+                    if (IsInTheSameRoot(destination))
                     {
                         // Same volume move - fast operation (just directory entry update)
-                        File.Move(source.FullPath, destination, overwrite);
+                        File.Move(FullPath, destination, overwrite);
 
                         // Send final progress update
                         progress?.Report(new StorageProgress
@@ -140,7 +181,7 @@ namespace Rheo.Storage.Handling
 
                         // FINALIZATION - Create and return new information
                         var newInfo = new FileInformation(destination);
-                        source.RaiseChanged(StorageChangeType.Relocated, newInfo);
+                        RaiseChanged(StorageChangeType.Relocated, newInfo);
                         return newInfo;
                     }
                 }
@@ -154,11 +195,11 @@ namespace Rheo.Storage.Handling
             FileInformation? copiedInfo = null;
             try
             {
-                copiedInfo = Copy(source, destination, overwrite, progress);
-                Delete(source);
+                copiedInfo = CopyInternal(destination, overwrite, progress);
+                DeleteInternal();
 
                 // Raise relocation event for the source object
-                source.RaiseChanged(StorageChangeType.Relocated, copiedInfo);
+                RaiseChanged(StorageChangeType.Relocated, copiedInfo);
 
                 // FINALIZATION
                 return copiedInfo;
@@ -171,7 +212,7 @@ namespace Rheo.Storage.Handling
                     try 
                     { 
                         var tempObj = new FileObject(copiedInfo.AbsolutePath);
-                        Delete(tempObj); 
+                        tempObj.DeleteInternal();
                     } 
                     catch { /* Log but don't throw */ }
                 }
@@ -180,33 +221,34 @@ namespace Rheo.Storage.Handling
         }
 
         /// <summary>
-        /// Renames the specified file to the given new name and updates the source object's state.
+        /// Renames the current file to the specified new name within the same directory and returns updated file
+        /// information.
         /// </summary>
-        /// <remarks>The source FileObject is updated via the Changed event to reflect the new name.
-        /// The operation is thread-safe and will wait for any ongoing operations on the
-        /// source file to complete before renaming.</remarks>
-        /// <param name="source">The FileObject representing the file to be renamed. Must not be null.</param>
+        /// <remarks>This method does not move the file to a different directory; it only changes the
+        /// file's name within its existing parent directory. The operation is performed atomically and raises a change
+        /// event upon successful completion.</remarks>
         /// <param name="newName">The new name for the file. Must be a valid file name and cannot be null or empty.</param>
-        /// <returns>A <see cref="FileInformation"/> object containing metadata about the renamed file.</returns>
-        /// <exception cref="ArgumentException">Thrown if the new name is null, empty, or contains invalid characters.</exception>
-        /// <exception cref="InvalidOperationException">Thrown if the file cannot be renamed due to an I/O error or insufficient permissions.</exception>
-        public static FileInformation Rename(FileObject source, string newName)
+        /// <returns>A <see cref="FileInformation"/> instance representing the file after it has been renamed.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if the file cannot be renamed due to I/O errors or insufficient permissions.</exception>
+        internal FileInformation RenameInternal(string newName)
         {
             // INITIALIZATION
             ThrowIfInvalidFileName(newName);
-            var destination = source.ParentDirectory;
+            var destination = ParentDirectory;
             ProcessDestinationPath(ref destination, newName, false);
 
             // OPERATION
-            lock(source.StateLock)
+            lock(StateLock)
             {
+                WaitForFileUnlock(FullPath);    // Ensure no other operations are in progress
+
                 try
                 {
-                    File.Move(source.FullPath, destination, false);
+                    File.Move(FullPath, destination, false);
                     
                     // FINALIZATION - Create new information and raise event
                     var newInfo = new FileInformation(destination);
-                    source.RaiseChanged(StorageChangeType.Relocated, newInfo);
+                    RaiseChanged(StorageChangeType.Relocated, newInfo);
                     return newInfo;
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -217,32 +259,28 @@ namespace Rheo.Storage.Handling
         }
 
         /// <summary>
-        /// Writes the contents of a stream to the specified file, optionally overwriting existing content and
-        /// reporting progress.
+        /// Writes the contents of the specified stream to the file represented by this instance, replacing any existing
+        /// data.
         /// </summary>
-        /// <remarks>This method acquires an exclusive lock on the file for the duration of the write operation
-        /// to ensure thread safety. The source stream is read from its current position (after seeking to the
-        /// beginning). The source FileObject's state is updated via the Changed event after writing.</remarks>
-        /// <param name="source">The FileObject representing the destination file. Must not be null.</param>
-        /// <param name="sourceStream">The stream containing data to write. Must support reading and have a known length. The stream is not
-        /// disposed by this method.</param>
-        /// <param name="overwrite">A value indicating whether to overwrite the file if it already exists. If <see langword="false"/> and
-        /// the file exists, an exception is thrown.</param>
-        /// <param name="progress">An optional progress reporter that receives updates about the write operation. May be null.</param>
-        /// <returns>A <see cref="FileInformation"/> object containing updated metadata about the file after the write operation.</returns>
+        /// <remarks>The method overwrites the file with the contents of the provided stream. The
+        /// operation is performed atomically and is thread-safe. Progress updates are reported if a progress reporter
+        /// is supplied.</remarks>
+        /// <param name="sourceStream">The stream containing the data to write to the file. The stream must be readable and positioned at the
+        /// beginning.</param>
+        /// <param name="progress">An optional progress reporter that receives updates about the number of bytes written. If null, progress is
+        /// not reported.</param>
+        /// <returns>A FileInformation object representing the updated state of the file after the write operation completes.</returns>
         /// <exception cref="InvalidOperationException">Thrown if the write operation fails due to an I/O error or insufficient permissions.</exception>
-        public static FileInformation Write(
-            FileObject source,
+        internal FileInformation WriteInternal(
             Stream sourceStream,
-            bool overwrite = false,
             IProgress<StorageProgress>? progress = null)
         {
             // INITIALIZATION
-            var bufferSize = source.GetBufferSize();
-            var destination = source.FullPath;
+            var bufferSize = GetBufferSize();
+            var destination = FullPath;
 
             // OPERATION
-            lock(source.StateLock)
+            lock(StateLock)
             {
                 try
                 {
@@ -252,13 +290,13 @@ namespace Rheo.Storage.Handling
                     CopyStreamToFile(
                         sourceStream,
                         destination,
-                        overwrite,
+                        true,
                         bufferSize,
                         progress);
                     
                     // FINALIZATION - Create new information and raise event
                     var newInfo = new FileInformation(destination);
-                    source.RaiseChanged(StorageChangeType.Modified, newInfo);
+                    RaiseChanged(StorageChangeType.Modified, newInfo);
                     return newInfo;
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -286,6 +324,8 @@ namespace Rheo.Storage.Handling
             int bufferSize,
             IProgress<StorageProgress>? progress)
         {
+            WaitForFileUnlock(destinationPath);    // Ensure no other operations are in progress
+
             using var destStream = new FileStream(
                 destinationPath,
                 overwrite ? FileMode.Create : FileMode.CreateNew,

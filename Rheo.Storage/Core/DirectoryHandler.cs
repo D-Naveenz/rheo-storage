@@ -1,35 +1,78 @@
 ﻿using System.Diagnostics;
+using Rheo.Storage.Contracts;
 using Rheo.Storage.Information;
 
-namespace Rheo.Storage.Handling
+namespace Rheo.Storage.Core
 {
-    internal static partial class DirectoryHandling
+    /// <summary>
+    /// Provides an abstract base class for managing and manipulating directories, including operations such as copying,
+    /// moving, deleting, and renaming directories within a storage system.
+    /// </summary>
+    /// <remarks>DirectoryHandler encapsulates common directory management functionality and serves as a
+    /// foundation for concrete directory handling implementations. It supports recursive operations, progress reporting
+    /// for long-running tasks, and change notifications when directory state changes. Thread safety is provided for
+    /// internal operations where necessary, but derived classes should ensure appropriate synchronization for extended
+    /// scenarios.</remarks>
+    public abstract partial class DirectoryHandler : StorageObject
     {
+        private DirectoryInformation _information;
+
         /// <summary>
-        /// Copies the entire directory and its contents to a new location, optionally overwriting existing files and
-        /// reporting progress.
+        /// Initializes a new instance of the DirectoryHandler class for the specified directory path or name.
         /// </summary>
-        /// <remarks>This method copies all files and subdirectories recursively. It leverages the existing
-        /// file copy infrastructure for efficient I/O. Empty directories are preserved. Progress is aggregated across
-        /// all file copy operations.</remarks>
-        /// <param name="source">The source DirectoryObject representing the directory to copy. Must not be null.</param>
-        /// <param name="destination">The destination path where the directory will be copied. If not absolute, it will be resolved.</param>
-        /// <param name="overwrite">true to overwrite existing files; otherwise, false. If false and a file exists, an exception is thrown.</param>
-        /// <param name="progress">An optional progress reporter that receives updates about the overall copy operation, including total bytes
-        /// and transfer rate. May be null.</param>
-        /// <returns>A <see cref="DirectoryInformation"/> object containing metadata about the newly created directory at the destination.</returns>
-        /// <exception cref="InvalidOperationException">Thrown if the copy operation fails due to I/O errors or insufficient permissions.</exception>
-        public static DirectoryInformation Copy(
-            DirectoryObject source,
+        /// <remarks>If a relative path is provided, it is resolved to an absolute path based on the
+        /// current working directory. The directory does not need to exist at the time of initialization.</remarks>
+        /// <param name="directoryNameOrPath">The name or full path of the directory to be managed. Cannot be null or empty.</param>
+        public DirectoryHandler(string directoryNameOrPath) : base(directoryNameOrPath)
+        {
+            _information = new DirectoryInformation(FullPath);
+        }
+
+        internal DirectoryHandler(DirectoryInformation info) : base(info.AbsolutePath)
+        {
+            _information = info;
+        }
+
+        /// <inheritdoc/>
+        public override IStorageInformation Information
+        {
+            get
+            {
+                ThrowIfDisposed();
+                return _information;
+            }
+            protected set
+            {
+                ThrowIfDisposed();
+                _information = (DirectoryInformation)value;
+            }
+        }
+
+        /// <summary>
+        /// Copies the contents of the current directory to the specified destination directory, including all
+        /// subdirectories and files.
+        /// </summary>
+        /// <remarks>All files and subdirectories from the source directory are recursively copied to the
+        /// destination. If overwrite is false and a file already exists at the destination, the operation may fail or
+        /// skip the file, depending on the underlying file handling logic. Progress updates are reported cumulatively
+        /// for the entire operation if a progress reporter is provided.</remarks>
+        /// <param name="destination">The path to the destination directory where the contents will be copied. If the directory does not exist, it
+        /// will be created.</param>
+        /// <param name="overwrite">true to overwrite existing files in the destination directory; otherwise, false.</param>
+        /// <param name="progress">An optional progress reporter that receives updates about the copy operation, including total bytes, bytes
+        /// transferred, and transfer speed. May be null if progress reporting is not required.</param>
+        /// <returns>A DirectoryInformation object representing the destination directory after the copy operation completes.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if the copy operation fails for any reason, such as an I/O error or invalid destination path.</exception>
+        internal DirectoryInformation CopyInternal(
             string destination,
             bool overwrite,
             IProgress<StorageProgress>? progress = null)
         {
             // INITIALIZATION
-            ProcessDestinationPath(ref destination, source.Name, overwrite);
-            var fullPath = source.FullPath;
+            ProcessDestinationPath(ref destination, Name, overwrite);
+            var fullPath = FullPath;
             var files = Directory.GetFiles(fullPath, "*", SearchOption.AllDirectories);
-            var totalBytes = source.Information!.Size;
+            var totalBytes = Information!.Size;
             long bytesTransferred = 0;
             var stopwatch = Stopwatch.StartNew();
 
@@ -80,7 +123,7 @@ namespace Rheo.Storage.Handling
 
                     // Use FileHandling.Copy for efficient file copying
                     var targetDir = Path.GetDirectoryName(targetFilePath)!;
-                    FileHandling.Copy(fileObj, targetDir, overwrite, fileProgress);
+                    fileObj.CopyInternal(targetDir, overwrite, fileProgress);
                 }
             }
             catch (Exception ex)
@@ -93,67 +136,65 @@ namespace Rheo.Storage.Handling
         }
 
         /// <summary>
-        /// Deletes the specified directory and all its contents from the file system.
+        /// Deletes the directory represented by this instance and raises a change notification event.
         /// </summary>
-        /// <remarks>This method deletes the directory recursively, including all files and subdirectories.
-        /// After successful deletion, the DirectoryObject is disposed via the Changed event and should not be used for further
-        /// operations. The method acquires a lock on the DirectoryObject to ensure thread safety during the delete
-        /// operation.</remarks>
-        /// <param name="source">The DirectoryObject representing the directory to delete. Cannot be null.</param>
+        /// <remarks>If the directory does not exist, the deletion is treated as successful and a change
+        /// notification is still raised. This method is intended for internal use and is not thread-safe beyond the
+        /// internal locking provided.</remarks>
         /// <exception cref="InvalidOperationException">Thrown if the directory cannot be deleted due to an I/O error or insufficient permissions.</exception>
-        public static void Delete(DirectoryObject source)
+        internal void DeleteInternal()
         {
-            lock (source.StateLock)
+            lock (StateLock)
             {
                 try
                 {
-                    var path = source.FullPath; // Store path before raising event
+                    var path = FullPath; // Store path before raising event
 
                     Directory.Delete(path, true);
 
                     // Raise the Changed event to notify deletion
-                    source.RaiseChanged(StorageChangeType.Deleted, null);
+                    RaiseChanged(StorageChangeType.Deleted, null);
                 }
                 catch (DirectoryNotFoundException)
                 {
                     // Directory already deleted - still raise the event
-                    source.RaiseChanged(StorageChangeType.Deleted, null);
+                    RaiseChanged(StorageChangeType.Deleted, null);
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
-                    throw new InvalidOperationException($"Failed to delete directory at '{source.FullPath}'.", ex);
+                    throw new InvalidOperationException($"Failed to delete directory at '{FullPath}'.", ex);
                 }
             }
         }
 
         /// <summary>
-        /// Moves the specified directory to a new destination, optionally overwriting an existing directory.
+        /// Moves the current directory to the specified destination path, optionally overwriting an existing directory.
         /// </summary>
         /// <remarks>If the source and destination are on the same volume, the move is performed as a fast
-        /// directory entry update. If they are on different volumes, the directory is copied and then the source is
-        /// deleted. The source object's state is updated via the Changed event. Progress updates are reported during
-        /// cross-volume moves.</remarks>
-        /// <param name="source">The directory to move. Must not be null and must refer to an existing directory.</param>
-        /// <param name="destination">The full path to the destination. Cannot be null or empty.</param>
+        /// directory entry update. For cross-volume moves, the directory is copied to the destination and then deleted
+        /// from the source. Progress reporting is only available for cross-volume moves; same-volume moves are
+        /// typically instantaneous and do not provide detailed progress updates.</remarks>
+        /// <param name="destination">The path to which the directory will be moved. This must be a valid directory path and cannot be null or
+        /// empty.</param>
         /// <param name="overwrite">true to overwrite the destination directory if it exists; otherwise, false.</param>
-        /// <param name="progress">An optional progress reporter that receives updates about the move operation. May be null.</param>
-        /// <returns>A <see cref="DirectoryInformation"/> object containing metadata about the directory at the new location.</returns>
-        /// <exception cref="InvalidOperationException">Thrown if the move operation fails due to I/O errors or insufficient permissions.</exception>
-        public static DirectoryInformation Move(
-            DirectoryObject source,
+        /// <param name="progress">An optional progress reporter that receives updates about the move operation. Progress is only reported for
+        /// cross-volume moves.</param>
+        /// <returns>A DirectoryInformation object representing the directory at its new location.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if the move operation fails due to an I/O error or insufficient permissions.</exception>
+        internal DirectoryInformation MoveInternal(
             string destination,
             bool overwrite,
             IProgress<StorageProgress>? progress = null)
         {
             // INITIALIZATION
-            ProcessDestinationPath(ref destination, source.Name, overwrite);
+            ProcessDestinationPath(ref destination, Name, overwrite);
 
             // OPERATION
-            lock (source.StateLock)
+            lock (StateLock)
             {
                 try
                 {
-                    if (source.IsInTheSameRoot(destination))
+                    if (IsInTheSameRoot(destination))
                     {
                         // Handle overwrite for same-volume moves
                         if (overwrite && Directory.Exists(destination))
@@ -162,7 +203,7 @@ namespace Rheo.Storage.Handling
                         }
 
                         // Same volume move - fast operation (just directory entry update)
-                        Directory.Move(source.FullPath, destination);
+                        Directory.Move(FullPath, destination);
 
                         // Note: No detailed progress for same-volume moves (typically instantaneous)
                         progress?.Report(new StorageProgress
@@ -174,13 +215,13 @@ namespace Rheo.Storage.Handling
 
                         // FINALIZATION - Create and return new information
                         var newInfo = new DirectoryInformation(destination);
-                        source.RaiseChanged(StorageChangeType.Relocated, newInfo);
+                        RaiseChanged(StorageChangeType.Relocated, newInfo);
                         return newInfo;
                     }
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
-                    throw new InvalidOperationException($"Failed to move directory from '{source.FullPath}' to '{destination}'.", ex);
+                    throw new InvalidOperationException($"Failed to move directory from '{FullPath}' to '{destination}'.", ex);
                 }
             }
 
@@ -188,11 +229,11 @@ namespace Rheo.Storage.Handling
             DirectoryInformation? copiedInfo = null;
             try
             {
-                copiedInfo = Copy(source, destination, overwrite, progress);
-                Delete(source);
+                copiedInfo = CopyInternal(destination, overwrite, progress);
+                DeleteInternal();
 
                 // Raise relocation event for the source object
-                source.RaiseChanged(StorageChangeType.Relocated, copiedInfo);
+                RaiseChanged(StorageChangeType.Relocated, copiedInfo);
 
                 // FINALIZATION
                 return copiedInfo;
@@ -205,7 +246,7 @@ namespace Rheo.Storage.Handling
                     try 
                     { 
                         var tempObj = new DirectoryObject(copiedInfo.AbsolutePath);
-                        Delete(tempObj); 
+                        tempObj.DeleteInternal();
                     }
                     catch { /* Suppress exceptions during rollback */ }
                 }
@@ -214,38 +255,34 @@ namespace Rheo.Storage.Handling
         }
 
         /// <summary>
-        /// Renames the specified directory to a new name and updates the source object's state.
+        /// Renames the current directory to the specified new name within the same parent directory.
         /// </summary>
-        /// <remarks>The source DirectoryObject is updated via the Changed event to reflect the new name.
-        /// The rename is performed atomically; if the operation fails, the original directory remains unchanged.</remarks>
-        /// <param name="source">The DirectoryObject representing the directory to rename. Must not be null and must refer to an existing
-        /// directory.</param>
-        /// <param name="newName">The new name for the directory. Cannot be null, empty, or contain invalid path characters.</param>
-        /// <returns>A <see cref="DirectoryInformation"/> object containing metadata about the renamed directory.</returns>
-        /// <exception cref="ArgumentException">Thrown if the new name is null, empty, or contains invalid characters.</exception>
-        /// <exception cref="InvalidOperationException">Thrown if the directory cannot be renamed due to an I/O error or insufficient permissions.</exception>
-        public static DirectoryInformation Rename(DirectoryObject source, string newName)
+        /// <param name="newName">The new name for the directory. Must be a valid directory name and cannot be null or empty.</param>
+        /// <returns>A new DirectoryInformation instance representing the directory after it has been renamed.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if the directory cannot be renamed, such as when the destination already exists, the source or
+        /// destination is in use, or access is denied.</exception>
+        internal DirectoryInformation RenameInternal(string newName)
         {
             // INITIALIZATION
             ThrowIfInvalidDirectoryName(newName);
-            var destination = source.ParentDirectory;
+            var destination = ParentDirectory;
             ProcessDestinationPath(ref destination, newName, false);
 
             // OPERATION
-            lock (source.StateLock)
+            lock (StateLock)
             {
                 try
                 {
-                    Directory.Move(source.FullPath, destination);
+                    Directory.Move(FullPath, destination);
 
                     // FINALIZATION - Create new information and raise event
                     var newInfo = new DirectoryInformation(destination);
-                    source.RaiseChanged(StorageChangeType.Relocated, newInfo);
+                    RaiseChanged(StorageChangeType.Relocated, newInfo);
                     return newInfo;
                 }
                 catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                 {
-                    throw new InvalidOperationException($"Failed to rename directory from '{source.FullPath}' to '{destination}'.", ex);
+                    throw new InvalidOperationException($"Failed to rename directory from '{FullPath}' to '{destination}'.", ex);
                 }
             }
         }

@@ -57,7 +57,7 @@ public class FileObjectEdgeCaseTests(ITestOutputHelper output, TestDirectoryFixt
         using var emptyStream = new MemoryStream();
 
         // Act
-        fileObj.Write(emptyStream, overwrite: true);
+        fileObj.Write(emptyStream);
 
         // Assert
         Assert.True(File.Exists(filePath));
@@ -126,7 +126,7 @@ public class FileObjectEdgeCaseTests(ITestOutputHelper output, TestDirectoryFixt
         using var stream = new MemoryStream(largeData);
 
         // Act
-        await fileObj.WriteAsync(stream, overwrite: true, cancellationToken: TestContext.Current.CancellationToken);
+        await fileObj.WriteAsync(stream, cancellationToken: TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(largeData.Length, fileObj.Information.Size);

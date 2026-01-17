@@ -1,14 +1,14 @@
 namespace Rheo.Storage.Contracts
 {
     /// <summary>
-    /// Provides a non-generic interface for storage objects, enabling polymorphic handling of files and directories
-    /// without requiring generic type parameters.
+    /// Represents a general abstraction for a storage object, such as a file or directory, providing access to
+    /// metadata, path information, and change notifications.
     /// </summary>
-    /// <remarks>
-    /// This interface allows working with storage objects in scenarios where the specific generic types are not known
-    /// at compile time, such as collections of mixed storage types or factory patterns. The concrete generic class
-    /// <see cref="Storage.StorageObject{TObj, TInfo}"/> implements this interface.
-    /// </remarks>
+    /// <remarks>Implementations of this interface provide a unified way to interact with storage entities,
+    /// allowing consumers to retrieve metadata, monitor changes, and manage resource lifetimes. The interface supports
+    /// event-driven notifications for content changes and enforces proper disposal patterns. Thread safety and event
+    /// handling behavior may vary by implementation; callers should consult specific documentation for
+    /// details.</remarks>
     public interface IStorageObject : IDisposable
     {
         /// <summary>
@@ -44,32 +44,6 @@ namespace Rheo.Storage.Contracts
         /// parameter. This event is typically raised on the thread where the change occurs; callers should ensure
         /// thread safety when handling the event.</remarks>
         event EventHandler<StorageChangedEventArgs>? Changed;
-
-        /// <summary>
-        /// Deletes the storage object from the file system.
-        /// </summary>
-        void Delete();
-
-        /// <summary>
-        /// Asynchronously deletes the storage object from the file system.
-        /// </summary>
-        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-        /// <returns>A task representing the asynchronous delete operation.</returns>
-        Task DeleteAsync(CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// Renames the current object to the specified name.
-        /// </summary>
-        /// <param name="newName">The new name to assign to the object. Cannot be null or empty.</param>
-        void Rename(string newName);
-
-        /// <summary>
-        /// Asynchronously renames the current item to the specified name.
-        /// </summary>
-        /// <param name="newName">The new name to assign to the item. Cannot be null or empty.</param>
-        /// <param name="cancellationToken">A cancellation token that can be used to cancel the rename operation.</param>
-        /// <returns>A task that represents the asynchronous rename operation.</returns>
-        Task RenameAsync(string newName, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// Calculates the recommended buffer size based on the current storage information.

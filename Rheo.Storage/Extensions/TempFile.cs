@@ -41,7 +41,7 @@ namespace Rheo.Storage.Extensions
             ArgumentNullException.ThrowIfNull(content);
 
             using var memoryStream = new MemoryStream(content);
-            await WriteAsync(memoryStream, true, cancellationToken);
+            await WriteAsync(memoryStream, cancellationToken);
         }
 
         /// <summary>

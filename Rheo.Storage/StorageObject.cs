@@ -1,28 +1,23 @@
 ﻿using Rheo.Storage.Contracts;
-using System.Diagnostics.CodeAnalysis;
 
 namespace Rheo.Storage
 {
     /// <summary>
-    /// Provides an abstract base class for file system storage objects, supporting common operations such as copy,
-    /// move, delete, and rename, along with access to storage metadata.
+    /// Provides an abstract base class for file system storage objects, encapsulating common functionality such as path
+    /// validation, resource management, and change notification.
     /// </summary>
-    /// <remarks>This class defines a common interface and shared logic for file and directory storage
-    /// objects. It enforces path validation and ensures that the associated file system location exists upon
-    /// instantiation. Derived classes should implement the abstract members to provide specific behavior for different
-    /// storage types. Thread safety for operations affecting the same path is supported via internal synchronization
-    /// mechanisms.</remarks>
-    /// <typeparam name="TObj">The type that implements the storage object, used for fluent return types in derived classes.</typeparam>
-    /// <typeparam name="TInfo">The type that provides metadata information about the storage object, such as size, attributes, and timestamps.</typeparam>
-    public abstract class StorageObject<TObj, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TInfo> : IStorageObject      // Using Curiously Recurring Template Pattern (CRTP)
-        where TObj : StorageObject<TObj, TInfo>
-        where TInfo : IStorageInformation
+    /// <remarks>The StorageObject class serves as a foundation for implementing file- or directory-based
+    /// storage abstractions. It manages the association with a file system path, ensures the existence of parent
+    /// directories, and provides thread-safe state management. Derived classes should implement the required members to
+    /// provide specific storage behaviors. The class supports change notification through the Changed event and
+    /// implements resource cleanup via IDisposable. Instances should not be used after they have been
+    /// disposed.</remarks>
+    public abstract class StorageObject: IStorageObject    // Using Curiously Recurring Template Pattern (CRTP)
     {
         private const int MIN_BUFFER_SIZE = 1024; // 1KB
         private const int MAX_BUFFER_SIZE = 16 * 1024 * 1024; // 16MB
         
         private readonly SemaphoreSlim _stateLockingSemaphore = new(1, 1);
-        private TInfo? _information;
         private bool _disposed;
 
         /// <summary>
@@ -46,15 +41,6 @@ namespace Rheo.Storage
             Changed += OnStateChanged;
         }
 
-        internal StorageObject(TInfo storageInformation)
-        {
-            _information = storageInformation;
-            FullPath = storageInformation.AbsolutePath;
-
-            // Subscribe to change events
-            Changed += OnStateChanged;
-        }
-
         /// <summary>
         /// Releases all resources used by the current instance of the class.
         /// </summary>
@@ -72,7 +58,7 @@ namespace Rheo.Storage
 
                     // Clean up managed resources here, if any
                     FullPath = string.Empty;
-                    _information = default;
+                    Information = default!;
                     _disposed = true;
                 }
             }
@@ -81,62 +67,19 @@ namespace Rheo.Storage
         }
 
         #region Properties
-        /// <summary>
-        /// Gets metadata information about the storage object, such as size, attributes, and timestamps.
-        /// </summary>
-        public TInfo Information
-        {
-            get
-            {
-                ThrowIfDisposed();
-                
-                // Fast path: if already initialized, return immediately
-                if (_information is not null)
-                {
-                    return _information;
-                }
+        /// <inheritdoc/>
+        public abstract IStorageInformation Information { get; protected set; }
 
-                // Slow path: acquire lock and initialize
-                lock (StateLock)
-                {
-                    // Double-check inside lock (another thread might have initialized it)
-                    _information ??= CreateInformationInstance();
-                    return _information;
-                }
-            }
-            protected set
-            {
-                ThrowIfDisposed();
-                lock (StateLock)
-                {
-                    _information = value;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets metadata information about the storage object as the non-generic interface type.
-        /// </summary>
-        IStorageInformation IStorageObject.Information => Information;
-
-        /// <summary>
-        /// Gets the name of the storage object, typically the file or directory name.
-        /// </summary>
+        /// <inheritdoc/>
         public abstract string Name { get; }
 
-        /// <summary>
-        /// Gets the full path of the parent directory for the current file or directory.
-        /// </summary>
+        /// <inheritdoc/>
         public string ParentDirectory => GetDirectoryPath(FullPath);
 
-        /// <summary>
-        /// Gets the full path of the file or directory by combining the parent directory and the name.
-        /// </summary>
+        /// <inheritdoc/>
         public string FullPath { get; protected set; }
 
-        /// <summary>
-        /// Gets a value indicating whether this storage object has been disposed.
-        /// </summary>
+        /// <inheritdoc/>
         public bool IsDisposed => _disposed;
 
         /// <summary>
@@ -148,124 +91,10 @@ namespace Rheo.Storage
 
         #endregion
 
-        /// <summary>
-        /// Occurs when the storage content changes.
-        /// </summary>
-        /// <remarks>Subscribers are notified whenever an item is added, removed, or updated in the
-        /// storage. The event provides details about the change through the <see cref="StorageChangedEventArgs"/>
-        /// parameter. This event is typically raised on the thread where the change occurs; callers should ensure
-        /// thread safety when handling the event.</remarks>
+        /// <inheritdoc/>
         public event EventHandler<StorageChangedEventArgs>? Changed;
 
-        #region Handling Methods
-        /// <summary>
-        /// Copies the storage object to the specified destination path, optionally overwriting the destination if it exists.
-        /// </summary>
-        /// <param name="destination">The destination path where the object will be copied.</param>
-        /// <param name="overwrite">true to overwrite the destination if it exists; otherwise, false.</param>
-        /// <returns>A new instance of <typeparamref name="TObj"/> representing the copied object.</returns>
-        public abstract TObj Copy(string destination, bool overwrite);
-
-        /// <summary>
-        /// Copies the storage object to the specified destination path with progress reporting, optionally overwriting the destination if it exists.
-        /// </summary>
-        /// <param name="destination">The destination path where the object will be copied.</param>
-        /// <param name="progress">An optional progress reporter for copy progress.</param>
-        /// <param name="overwrite">true to overwrite the destination if it exists; otherwise, false.</param>
-        /// <returns>A new instance of <typeparamref name="TObj"/> representing the copied object.</returns>
-        public abstract TObj Copy(string destination, IProgress<StorageProgress>? progress, bool overwrite = false);
-
-        /// <summary>
-        /// Asynchronously copies the storage object to the specified destination path, optionally overwriting the destination if it exists.
-        /// </summary>
-        /// <param name="destination">The destination path where the object will be copied.</param>
-        /// <param name="overwrite">true to overwrite the destination if it exists; otherwise, false.</param>
-        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-        /// <returns>A task representing the asynchronous copy operation. The result is a new instance of <typeparamref name="TObj"/> representing the copied object.</returns>
-        public abstract Task<TObj> CopyAsync(string destination, bool overwrite, CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// Asynchronously copies the storage object to the specified destination path with progress reporting, optionally overwriting the destination if it exists.
-        /// </summary>
-        /// <param name="destination">The destination path where the object will be copied.</param>
-        /// <param name="progress">An optional progress reporter for copy progress.</param>
-        /// <param name="overwrite">true to overwrite the destination if it exists; otherwise, false.</param>
-        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-        /// <returns>A task representing the asynchronous copy operation. The result is a new instance of <typeparamref name="TObj"/> representing the copied object.</returns>
-        public abstract Task<TObj> CopyAsync(string destination, IProgress<StorageProgress>? progress, bool overwrite = false, CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// Deletes the storage object from the file system.
-        /// </summary>
-        public abstract void Delete();
-
-        /// <summary>
-        /// Asynchronously deletes the storage object from the file system.
-        /// </summary>
-        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-        /// <returns>A task representing the asynchronous delete operation.</returns>
-        public abstract Task DeleteAsync(CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// Moves the storage object to the specified destination path, optionally overwriting the destination if it exists.
-        /// </summary>
-        /// <param name="destination">The destination path where the object will be moved.</param>
-        /// <param name="overwrite">true to overwrite the destination if it exists; otherwise, false.</param>
-        public abstract void Move(string destination, bool overwrite);
-
-        /// <summary>
-        /// Moves the storage object to the specified destination path with progress reporting, optionally overwriting the destination if it exists.
-        /// </summary>
-        /// <param name="destination">The destination path where the object will be moved.</param>
-        /// <param name="progress">An optional progress reporter for move progress.</param>
-        /// <param name="overwrite">true to overwrite the destination if it exists; otherwise, false.</param>
-        public abstract void Move(string destination, IProgress<StorageProgress>? progress, bool overwrite = false);
-
-        /// <summary>
-        /// Asynchronously moves the storage object to the specified destination path, optionally overwriting the destination if it exists.
-        /// </summary>
-        /// <param name="destination">The destination path where the object will be moved.</param>
-        /// <param name="overwrite">true to overwrite the destination if it exists; otherwise, false.</param>
-        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-        /// <returns>A task representing the asynchronous move operation.</returns>
-        public abstract Task MoveAsync(string destination, bool overwrite, CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// Asynchronously moves the storage object to the specified destination path with progress reporting, optionally overwriting the destination if it exists.
-        /// </summary>
-        /// <param name="destination">The destination path where the object will be moved.</param>
-        /// <param name="progress">An optional progress reporter for move progress.</param>
-        /// <param name="overwrite">true to overwrite the destination if it exists; otherwise, false.</param>
-        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-        /// <returns>A task representing the asynchronous move operation.</returns>
-        public abstract Task MoveAsync(string destination, IProgress<StorageProgress>? progress, bool overwrite = false, CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// Renames the current object to the specified name.
-        /// </summary>
-        /// <param name="newName">The new name to assign to the object. Cannot be null or empty.</param>
-        public abstract void Rename(string newName);
-
-        /// <summary>
-        /// Asynchronously renames the current item to the specified name.
-        /// </summary>
-        /// <param name="newName">The new name to assign to the item. Cannot be null or empty.</param>
-        /// <param name="cancellationToken">A cancellation token that can be used to cancel the rename operation.</param>
-        /// <returns>A task that represents the asynchronous rename operation.</returns>
-        public abstract Task RenameAsync(string newName, CancellationToken cancellationToken = default);
-
-        #endregion
-
-        /// <summary>
-        /// Calculates the recommended buffer size based on the current storage information.
-        /// </summary>
-        /// <remarks>The returned buffer size is determined by the size of the underlying storage. If the
-        /// storage size is zero or less than the minimum buffer size, the minimum buffer size is returned. If the
-        /// storage size exceeds the maximum buffer size, the maximum buffer size is returned. Otherwise, the buffer
-        /// size is calculated to target approximately 100 chunks, within the allowed range.</remarks>
-        /// <returns>An integer representing the recommended buffer size, constrained between the minimum and maximum allowed
-        /// values.</returns>
-        /// <exception cref="InvalidOperationException">Thrown if the storage information has not been initialized.</exception>
+        /// <inheritdoc/>
         public int GetBufferSize()
         {
             if (Information is null)
@@ -284,10 +113,7 @@ namespace Rheo.Storage
                 return Math.Min(MAX_BUFFER_SIZE, Math.Max(MIN_BUFFER_SIZE, (int)(size / 100))); // Aim for ~100 chunks
         }
 
-        /// <summary>
-        /// Throws an <see cref="ObjectDisposedException"/> if this storage object has been disposed.
-        /// </summary>
-        /// <exception cref="ObjectDisposedException">Thrown if the object has already been disposed.</exception>
+        /// <inheritdoc/>
         public void ThrowIfDisposed()
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
@@ -303,14 +129,6 @@ namespace Rheo.Storage
 
             return Information.ToString()!;
         }
-
-        /// <summary>
-        /// Creates an instance of the storage information type for the specified path.
-        /// </summary>
-        /// <remarks>Derived classes must implement this method to provide the appropriate information type
-        /// for their storage object (e.g., FileInformation for File objects, DirectoryInformation for Directory objects).</remarks>
-        /// <returns>An instance of <typeparamref name="TInfo"/> representing the storage information for the specified path.</returns>
-        protected abstract TInfo CreateInformationInstance();
 
         /// <summary>
         /// Validates the specified path and returns its absolute form if it meets the required criteria for the given
@@ -346,6 +164,74 @@ namespace Rheo.Storage
             return fullPath;
         }
 
+        /// <summary>
+        /// Asynchronously waits until the specified file is unlocked (available for exclusive access).
+        /// </summary>
+        /// <param name="filePath">Full path to the file.</param>
+        /// <param name="timeoutMilliseconds">Maximum wait time in milliseconds (0 for infinite).</param>
+        /// <param name="checkIntervalMilliseconds">Delay between checks in milliseconds.</param>
+        /// <param name="cancellationToken">Cancellation token to cancel the wait operation.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result is true if the file became available, false if timed out.</returns>
+        /// <exception cref="ArgumentException">Thrown if the file path is null or empty.</exception>
+        /// <exception cref="FileNotFoundException">Thrown if the file does not exist.</exception>
+        /// <exception cref="OperationCanceledException">Thrown if the operation is cancelled.</exception>
+        protected static async Task<bool> WaitForFileUnlockAsync(string filePath, int timeoutMilliseconds = 10000, int checkIntervalMilliseconds = 200, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(filePath))
+                throw new ArgumentException("File path cannot be null or empty.", nameof(filePath));
+
+            if (!File.Exists(filePath))
+                throw new FileNotFoundException("File not found.", filePath);
+
+            var startTime = DateTime.UtcNow;
+
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                try
+                {
+                    // Try opening with exclusive access
+                    using FileStream fs = new(filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                    // Successfully opened — file is unlocked
+                    return true;
+                }
+                catch (IOException)
+                {
+                    // File is still locked by another process
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    // File might be read-only or locked by OS
+                }
+
+                // Check timeout
+                if (timeoutMilliseconds > 0 &&
+                    (DateTime.UtcNow - startTime).TotalMilliseconds > timeoutMilliseconds)
+                {
+                    return false; // Timed out
+                }
+
+                await Task.Delay(checkIntervalMilliseconds, cancellationToken);
+            }
+        }
+
+        /// <summary>
+        /// Synchronously waits until the specified file is unlocked (available for exclusive access).
+        /// </summary>
+        /// <param name="filePath">Full path to the file.</param>
+        /// <param name="timeoutMilliseconds">Maximum wait time in milliseconds (0 for infinite).</param>
+        /// <param name="checkIntervalMilliseconds">Delay between checks in milliseconds.</param>
+        /// <returns>True if the file became available, false if timed out.</returns>
+        /// <exception cref="ArgumentException">Thrown if the file path is null or empty.</exception>
+        /// <exception cref="FileNotFoundException">Thrown if the file does not exist.</exception>
+        protected static bool WaitForFileUnlock(string filePath, int timeoutMilliseconds = 10000, int checkIntervalMilliseconds = 200)
+        {
+            return WaitForFileUnlockAsync(filePath, timeoutMilliseconds, checkIntervalMilliseconds, CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
+        }
+
         internal bool IsInTheSameRoot(string destpath)
         {
             try
@@ -362,7 +248,7 @@ namespace Rheo.Storage
             }
         }
 
-        internal void RaiseChanged(StorageChangeType changeType, TInfo? newInformation)
+        internal void RaiseChanged(StorageChangeType changeType, IStorageInformation? newInformation)
         {
             Changed?.Invoke(this, new StorageChangedEventArgs(changeType, newInformation));
         }
@@ -376,7 +262,7 @@ namespace Rheo.Storage
                 lock (StateLock)
                 {
                     // Update information and path on modification or relocation
-                    Information = (TInfo)e.NewInfo;
+                    Information = e.NewInfo;
                     FullPath = Information.AbsolutePath;
                 }
             }
@@ -387,12 +273,6 @@ namespace Rheo.Storage
             }
         }
 
-        /// <summary>
-        /// Gets the directory of a path-like string.
-        /// </summary>
-        /// <param name="pathlike"></param>
-        /// <returns></returns>
-        /// <exception cref="ArgumentException"></exception>
         private static string GetDirectoryPath(string pathlike)
         {
             string? dir;

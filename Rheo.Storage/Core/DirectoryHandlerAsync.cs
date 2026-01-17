@@ -1,38 +1,37 @@
-﻿using System.Diagnostics;
-using Rheo.Storage.Information;
+﻿using Rheo.Storage.Information;
+using System.Diagnostics;
 
-namespace Rheo.Storage.Handling
+namespace Rheo.Storage.Core
 {
-    internal static partial class DirectoryHandling
+    public abstract partial class DirectoryHandler
     {
         /// <summary>
-        /// Asynchronously copies the entire directory and its contents to a new location, optionally overwriting
-        /// existing files and reporting progress.
+        /// Asynchronously copies the contents of the current directory to the specified destination directory,
+        /// including all subdirectories and files.
         /// </summary>
-        /// <remarks>This method copies all files and subdirectories recursively. It leverages the existing
-        /// file copy infrastructure for efficient, double-buffered I/O. Empty directories are preserved. Progress is
-        /// aggregated across all file copy operations.</remarks>
-        /// <param name="source">The source DirectoryObject representing the directory to copy. Must not be null.</param>
-        /// <param name="destination">The destination path where the directory will be copied. If not absolute, it will be resolved.</param>
-        /// <param name="overwrite">true to overwrite existing files; otherwise, false. If false and a file exists, an exception is thrown.</param>
-        /// <param name="progress">An optional progress reporter that receives updates about the overall copy operation, including total bytes
-        /// and transfer rate. May be null.</param>
+        /// <remarks>All subdirectories and files are copied recursively. If the operation is canceled,
+        /// any partially copied data in the destination directory is deleted before the exception is thrown. The method
+        /// reports aggregate progress for the entire directory copy if a progress reporter is provided.</remarks>
+        /// <param name="destination">The path to the destination directory where the contents will be copied. If the directory does not exist, it
+        /// will be created.</param>
+        /// <param name="overwrite">true to overwrite existing files in the destination directory; otherwise, false.</param>
+        /// <param name="progress">An optional progress reporter that receives updates about the total bytes transferred during the copy
+        /// operation. May be null if progress reporting is not required.</param>
         /// <param name="cancellationToken">A cancellation token that can be used to cancel the copy operation.</param>
-        /// <returns>A task that represents the asynchronous copy operation. The task result contains a <see cref="DirectoryInformation"/>
-        /// object containing metadata about the newly created directory at the destination.</returns>
-        /// <exception cref="InvalidOperationException">Thrown if the copy operation fails due to I/O errors or insufficient permissions.</exception>
-        public static async Task<DirectoryInformation> CopyAsync(
-            DirectoryObject source,
+        /// <returns>A task that represents the asynchronous copy operation. The task result contains a DirectoryInformation
+        /// object for the destination directory after the copy completes.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if the copy operation fails due to an error accessing the source or destination directory.</exception>
+        internal async Task<DirectoryInformation> CopyInternalAsync(
             string destination,
             bool overwrite,
             IProgress<StorageProgress>? progress = null,
             CancellationToken cancellationToken = default)
         {
             // INITIALIZATION
-            ProcessDestinationPath(ref destination, source.Name, overwrite);
-            var fullPath = source.FullPath;
+            ProcessDestinationPath(ref destination, Name, overwrite);
+            var fullPath = FullPath;
             var files = Directory.GetFiles(fullPath, "*", SearchOption.AllDirectories);
-            var totalBytes = source.Information!.Size;
+            var totalBytes = Information!.Size;
             long bytesTransferred = 0;
             var stopwatch = Stopwatch.StartNew();
 
@@ -88,8 +87,7 @@ namespace Rheo.Storage.Handling
 
                     // Use FileHandling.CopyAsync for efficient file copying
                     var targetDir = Path.GetDirectoryName(targetFilePath)!;
-                    await FileHandling.CopyAsync(
-                        fileObj,
+                    await fileObj.CopyInternalAsync(
                         targetDir,
                         overwrite,
                         fileProgress,
@@ -122,38 +120,35 @@ namespace Rheo.Storage.Handling
         }
 
         /// <summary>
-        /// Asynchronously deletes the specified directory and all its contents from the file system.
+        /// Asynchronously deletes the directory and all its contents at the specified path.
         /// </summary>
-        /// <remarks>This method deletes the directory recursively, including all files and subdirectories.
-        /// After successful deletion, the DirectoryObject is disposed via the Changed event and should not be used for further
-        /// operations. The method acquires a lock on the DirectoryObject to ensure thread safety during the delete
-        /// operation.</remarks>
-        /// <param name="source">The DirectoryObject representing the directory to delete. Cannot be null.</param>
+        /// <remarks>If the directory does not exist, the method completes successfully and raises the
+        /// deletion event. The method raises a change notification after the directory is deleted.</remarks>
         /// <param name="cancellationToken">A cancellation token that can be used to cancel the delete operation.</param>
         /// <returns>A task that represents the asynchronous delete operation.</returns>
         /// <exception cref="InvalidOperationException">Thrown if the directory cannot be deleted due to an I/O error or insufficient permissions.</exception>
-        public static async Task DeleteAsync(DirectoryObject source, CancellationToken cancellationToken = default)
+        internal async Task DeleteInternalAsync(CancellationToken cancellationToken = default)
         {
-            var _lock = source.Semaphore;
+            var _lock = Semaphore;
 
             await _lock.WaitAsync(cancellationToken);
             try
             {
-                var path = source.FullPath; // Store path before raising event
+                var path = FullPath; // Store path before raising event
 
                 await Task.Run(() => Directory.Delete(path, true), cancellationToken);
 
                 // Raise the Changed event to notify deletion
-                source.RaiseChanged(StorageChangeType.Deleted, null);
+                RaiseChanged(StorageChangeType.Deleted, null);
             }
             catch (DirectoryNotFoundException)
             {
                 // Directory already deleted - still raise the event
-                source.RaiseChanged(StorageChangeType.Deleted, null);
+                RaiseChanged(StorageChangeType.Deleted, null);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                throw new InvalidOperationException($"Failed to delete directory at '{source.FullPath}'.", ex);
+                throw new InvalidOperationException($"Failed to delete directory at '{FullPath}'.", ex);
             }
             finally
             {
@@ -162,36 +157,37 @@ namespace Rheo.Storage.Handling
         }
 
         /// <summary>
-        /// Asynchronously moves the specified directory to a new destination, optionally overwriting an existing directory.
+        /// Moves the current directory to the specified destination path asynchronously, optionally overwriting an
+        /// existing directory.
         /// </summary>
         /// <remarks>If the source and destination are on the same volume, the move is performed as a fast
-        /// directory entry update. If they are on different volumes, the directory is copied and then the source is
-        /// deleted. The source object's state is updated via the Changed event. Progress updates are reported during
-        /// cross-volume moves.</remarks>
-        /// <param name="source">The directory to move. Must not be null and must refer to an existing directory.</param>
-        /// <param name="destination">The full path to the destination. Cannot be null or empty.</param>
+        /// directory entry update. For cross-volume moves, the directory is copied to the destination and then deleted
+        /// from the source. In the event of a failure during a cross-volume move, the method attempts to roll back any
+        /// partially completed operations. Progress reporting is only available for cross-volume moves, as same-volume
+        /// moves are typically instantaneous.</remarks>
+        /// <param name="destination">The full path to the destination directory. Must be a valid path and cannot be null or empty.</param>
         /// <param name="overwrite">true to overwrite the destination directory if it exists; otherwise, false.</param>
-        /// <param name="progress">An optional progress reporter that receives updates about the move operation. May be null.</param>
+        /// <param name="progress">An optional progress reporter that receives updates about the move operation. Progress is only reported for
+        /// cross-volume moves.</param>
         /// <param name="cancellationToken">A cancellation token that can be used to cancel the move operation.</param>
-        /// <returns>A task that represents the asynchronous move operation. The task result contains a <see cref="DirectoryInformation"/>
-        /// object containing metadata about the directory at the new location.</returns>
-        /// <exception cref="InvalidOperationException">Thrown if the move operation fails due to I/O errors or insufficient permissions.</exception>
-        public static async Task<DirectoryInformation> MoveAsync(
-            DirectoryObject source, 
+        /// <returns>A task that represents the asynchronous operation. The task result contains a DirectoryInformation object
+        /// for the moved directory at the destination path.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if the move operation fails due to an I/O error or insufficient permissions.</exception>
+        internal async Task<DirectoryInformation> MoveInternalAsync(
             string destination, 
             bool overwrite, 
             IProgress<StorageProgress>? progress = null, 
             CancellationToken cancellationToken = default)
         {
             // INITIALIZATION
-            ProcessDestinationPath(ref destination, source.Name, overwrite);
-            var _lock = source.Semaphore;
+            ProcessDestinationPath(ref destination, Name, overwrite);
+            var _lock = Semaphore;
 
             // OPERATION
             await _lock.WaitAsync(cancellationToken);
             try
             {
-                if (source.IsInTheSameRoot(destination))
+                if (IsInTheSameRoot(destination))
                 {
                     // Handle overwrite for same-volume moves
                     if (overwrite && Directory.Exists(destination))
@@ -200,7 +196,7 @@ namespace Rheo.Storage.Handling
                     }
                     
                     // Same volume move - fast operation (just directory entry update)
-                    await Task.Run(() => Directory.Move(source.FullPath, destination), cancellationToken);
+                    await Task.Run(() => Directory.Move(FullPath, destination), cancellationToken);
 
                     // Note: No detailed progress for same-volume moves (typically instantaneous)
                     progress?.Report(new StorageProgress
@@ -212,13 +208,13 @@ namespace Rheo.Storage.Handling
 
                     // FINALIZATION - Create and return new information
                     var newInfo = new DirectoryInformation(destination);
-                    source.RaiseChanged(StorageChangeType.Relocated, newInfo);
+                    RaiseChanged(StorageChangeType.Relocated, newInfo);
                     return newInfo;
                 }
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                throw new InvalidOperationException($"Failed to move directory from '{source.FullPath}' to '{destination}'.", ex);
+                throw new InvalidOperationException($"Failed to move directory from '{FullPath}' to '{destination}'.", ex);
             }
             finally
             {
@@ -229,11 +225,11 @@ namespace Rheo.Storage.Handling
             DirectoryInformation? copiedInfo = null;
             try
             {
-                copiedInfo = await CopyAsync(source, destination, overwrite, progress, cancellationToken);
-                await DeleteAsync(source, cancellationToken);
+                copiedInfo = await CopyInternalAsync(destination, overwrite, progress, cancellationToken);
+                await DeleteInternalAsync(cancellationToken);
 
                 // Raise relocation event for the source object
-                source.RaiseChanged(StorageChangeType.Relocated, copiedInfo);
+                RaiseChanged(StorageChangeType.Relocated, copiedInfo);
 
                 // FINALIZATION
                 return copiedInfo;
@@ -246,7 +242,7 @@ namespace Rheo.Storage.Handling
                     try
                     {
                         var tempObj = new DirectoryObject(copiedInfo.AbsolutePath);
-                        await DeleteAsync(tempObj, cancellationToken);
+                        await tempObj.DeleteInternalAsync(cancellationToken);
                     }
                     catch
                     {
@@ -258,43 +254,40 @@ namespace Rheo.Storage.Handling
         }
 
         /// <summary>
-        /// Asynchronously renames the specified directory to a new name and updates the source object's state.
+        /// Renames the current directory to the specified new name asynchronously and returns information about the
+        /// renamed directory.
         /// </summary>
-        /// <remarks>The source DirectoryObject is updated via the Changed event to reflect the new name.
-        /// The rename is performed atomically; if the operation fails, the original directory remains unchanged.</remarks>
-        /// <param name="source">The DirectoryObject representing the directory to rename. Must not be null and must refer to an existing
-        /// directory.</param>
-        /// <param name="newName">The new name for the directory. Cannot be null, empty, or contain invalid path characters.</param>
-        /// <param name="cancellationToken">A CancellationToken that can be used to cancel the rename operation.</param>
-        /// <returns>A task that represents the asynchronous operation. The task result contains a <see cref="DirectoryInformation"/>
-        /// object containing metadata about the renamed directory.</returns>
-        /// <exception cref="ArgumentException">Thrown if the new name is null, empty, or contains invalid characters.</exception>
-        /// <exception cref="InvalidOperationException">Thrown if the directory cannot be renamed due to an I/O error or insufficient permissions.</exception>
-        public static async Task<DirectoryInformation> RenameAsync(
-            DirectoryObject source, 
+        /// <remarks>The operation is performed atomically and raises a change event upon successful
+        /// completion. If the operation is canceled, the directory remains unchanged.</remarks>
+        /// <param name="newName">The new name for the directory. Must be a valid directory name and cannot be null or empty.</param>
+        /// <param name="cancellationToken">A cancellation token that can be used to cancel the asynchronous operation.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result contains a DirectoryInformation object
+        /// for the renamed directory.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if the directory cannot be renamed, such as when the destination already exists or access is denied.</exception>
+        internal async Task<DirectoryInformation> RenameInternalAsync(
             string newName,
             CancellationToken cancellationToken = default)
         {
             // INITIALIZATION
             ThrowIfInvalidDirectoryName(newName);
-            var destination = source.ParentDirectory;
+            var destination = ParentDirectory;
             ProcessDestinationPath(ref destination, newName, false);
-            var _lock = source.Semaphore;
+            var _lock = Semaphore;
 
             // OPERATION
             await _lock.WaitAsync(cancellationToken);
             try
             {
-                await Task.Run(() => Directory.Move(source.FullPath, destination), cancellationToken);
+                await Task.Run(() => Directory.Move(FullPath, destination), cancellationToken);
 
                 // FINALIZATION - Create new information and raise event
                 var newInfo = new DirectoryInformation(destination);
-                source.RaiseChanged(StorageChangeType.Relocated, newInfo);
+                RaiseChanged(StorageChangeType.Relocated, newInfo);
                 return newInfo;
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
-                throw new InvalidOperationException($"Failed to rename directory from '{source.FullPath}' to '{destination}'.", ex);
+                throw new InvalidOperationException($"Failed to rename directory from '{FullPath}' to '{destination}'.", ex);
             }
             finally
             {

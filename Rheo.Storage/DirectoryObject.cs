@@ -1,4 +1,5 @@
-﻿using Rheo.Storage.Handling;
+﻿using Rheo.Storage.Contracts;
+using Rheo.Storage.Core;
 using Rheo.Storage.Information;
 using System.Collections.Concurrent;
 
@@ -15,7 +16,7 @@ namespace Rheo.Storage
     /// modifications. This monitoring may affect properties that reflect the current state of the directory. The class
     /// provides both synchronous and asynchronous methods for common directory operations, and ensures that resource
     /// management and error handling are consistent with .NET best practices.</remarks>
-    public class DirectoryObject : StorageObject<DirectoryObject, DirectoryInformation>
+    public class DirectoryObject : DirectoryHandler, IDirectoryObject
     {
         /// <summary>
         /// The default interval, in milliseconds, used to debounce file system watcher events when monitoring directory changes.
@@ -122,19 +123,10 @@ namespace Rheo.Storage
             }
         }
 
-        /// <summary>
-        /// Retrieves the file names from the directory represented by this instance, based on the specified search
-        /// pattern and search option.
-        /// </summary>
-        /// <remarks>This method uses the <see cref="Directory.GetFiles(string, string, SearchOption)"/>
-        /// method internally to retrieve the file names.</remarks>
-        /// <param name="searchPattern">The search string to match against the names of files in the directory. The default value is "*", which
-        /// matches all files.</param>
-        /// <param name="searchOption">Specifies whether to search only the current directory or all subdirectories. The default value is <see
-        /// cref="SearchOption.TopDirectoryOnly"/>.</param>
-        /// <returns>An array of strings containing the full paths of the files that match the specified
-        /// search pattern and search option.</returns>
-        /// <exception cref="IOException">Thrown if an I/O error occurs while accessing the directory or its contents.</exception>
+        /// <inheritdoc/>
+        public new DirectoryInformation Information => base.Information as DirectoryInformation ?? throw new InvalidOperationException("Information is not of type DirectoryInformation.");
+
+        /// <inheritdoc/>
         public string[] GetFiles(string searchPattern = "*", SearchOption searchOption = SearchOption.TopDirectoryOnly)
         {
             try
@@ -148,17 +140,8 @@ namespace Rheo.Storage
             }
         }
 
-        /// <summary>
-        /// Retrieves a file from the specified relative path within the current directory.
-        /// </summary>
-        /// <remarks>The method combines the provided relative path with the current directory's full path
-        /// to locate the file. Ensure that the relative path is valid and points to an existing file within the
-        /// directory.</remarks>
-        /// <param name="relativePath">The relative path to the file, starting from the current directory. The path must not be rooted.</param>
-        /// <returns>A <see cref="FileObject"/> instance representing the file at the specified path.</returns>
-        /// <exception cref="ArgumentException">Thrown if <paramref name="relativePath"/> is an absolute path.</exception>
-        /// <exception cref="FileNotFoundException">Thrown if the file does not exist at the specified relative path.</exception>
-        public FileObject GetFile(string relativePath)
+        /// <inheritdoc/>
+        public IFileObject GetFile(string relativePath)
         {
             // Verify that the relativePath is indeed relative
             if (Path.IsPathRooted(relativePath))
@@ -175,20 +158,7 @@ namespace Rheo.Storage
             return new FileObject(fullPath);
         }
 
-        /// <summary>
-        /// Retrieves the names of subdirectories in the current directory that match the specified search pattern and
-        /// search option.
-        /// </summary>
-        /// <remarks>This method wraps <see cref="Directory.GetDirectories(string, string,
-        /// SearchOption)"/> and provides additional context in the exception message if an error occurs.</remarks>
-        /// <param name="searchPattern">The search string to match against the names of subdirectories. The default value is "*", which matches all
-        /// subdirectories.</param>
-        /// <param name="searchOption">Specifies whether to search only the current directory or all subdirectories. The default value is <see
-        /// cref="SearchOption.TopDirectoryOnly"/>.</param>
-        /// <returns>An array of the full paths of subdirectories that match the specified search pattern and
-        /// search option.</returns>
-        /// <exception cref="IOException">Thrown if an I/O error occurs while accessing the file system, or if an error occurs while retrieving
-        /// directories.</exception>
+        /// <inheritdoc/>
         public string[] GetDirectories(string searchPattern = "*", SearchOption searchOption = SearchOption.TopDirectoryOnly)
         {
             try
@@ -202,18 +172,8 @@ namespace Rheo.Storage
             }
         }
 
-        /// <summary>
-        /// Retrieves a <see cref="DirectoryObject"/> representing the directory at the specified relative path.
-        /// </summary>
-        /// <remarks>This method combines the specified <paramref name="relativePath"/> with the base
-        /// directory's full path to locate the target directory. Ensure that the relative path is valid and points to
-        /// an existing directory.</remarks>
-        /// <param name="relativePath">The relative path to the directory, relative to the base directory represented by this instance. The path
-        /// must not be rooted.</param>
-        /// <returns>A <see cref="DirectoryObject"/> representing the directory at the specified relative path.</returns>
-        /// <exception cref="ArgumentException">Thrown if <paramref name="relativePath"/> is a rooted path.</exception>
-        /// <exception cref="DirectoryNotFoundException">Thrown if the directory specified by <paramref name="relativePath"/> does not exist.</exception>
-        public DirectoryObject GetDirectory(string relativePath)
+        /// <inheritdoc/>
+        public IDirectoryObject GetDirectory(string relativePath)
         {
             // Verify that the relativePath is indeed relative
             if (Path.IsPathRooted(relativePath))
@@ -229,95 +189,95 @@ namespace Rheo.Storage
         }
 
         /// <inheritdoc/>
-        public override DirectoryObject Copy(string destination, bool overwrite)
+        public IDirectoryObject Copy(string destination, bool overwrite)
         {
             ThrowIfDisposed();
-            var info = DirectoryHandling.Copy(this, destination, overwrite);
+            var info = CopyInternal(destination, overwrite);
             return new DirectoryObject(info);
         }
 
         /// <inheritdoc/>
-        public override DirectoryObject Copy(string destination, IProgress<StorageProgress>? progress, bool overwrite = false)
+        public IDirectoryObject Copy(string destination, IProgress<StorageProgress>? progress, bool overwrite = false)
         {
             ThrowIfDisposed();
-            var info = DirectoryHandling.Copy(this, destination, overwrite, progress);
+            var info = CopyInternal(destination, overwrite, progress);
             return new DirectoryObject(info);
         }
 
         /// <inheritdoc/>
-        public override async Task<DirectoryObject> CopyAsync(string destination, bool overwrite, CancellationToken cancellationToken = default)
+        public async Task<IDirectoryObject> CopyAsync(string destination, bool overwrite, CancellationToken cancellationToken = default)
         {
             ThrowIfDisposed();
-            var info = await DirectoryHandling.CopyAsync(this, destination, overwrite, null, cancellationToken);
+            var info = await CopyInternalAsync(destination, overwrite, null, cancellationToken);
             return new DirectoryObject(info);
         }
 
         /// <inheritdoc/>
-        public override async Task<DirectoryObject> CopyAsync(string destination, IProgress<StorageProgress>? progress, bool overwrite = false, CancellationToken cancellationToken = default)
+        public async Task<IDirectoryObject> CopyAsync(string destination, IProgress<StorageProgress>? progress, bool overwrite = false, CancellationToken cancellationToken = default)
         {
             ThrowIfDisposed();
-            var info = await DirectoryHandling.CopyAsync(this, destination, overwrite, progress, cancellationToken);
+            var info = await CopyInternalAsync(destination, overwrite, progress, cancellationToken);
             return new DirectoryObject(info);
         }
 
         /// <inheritdoc/>
-        public override void Delete()
+        public void Delete()
         {
             ThrowIfDisposed();
-            DirectoryHandling.Delete(this);
+            DeleteInternal();
         }
 
         /// <inheritdoc/>
-        public override Task DeleteAsync(CancellationToken cancellationToken = default)
+        public Task DeleteAsync(CancellationToken cancellationToken = default)
         {
             ThrowIfDisposed();
-            return DirectoryHandling.DeleteAsync(this, cancellationToken);
+            return DeleteInternalAsync(cancellationToken);
         }
 
         /// <inheritdoc/>
-        public override void Move(string destination, bool overwrite)
+        public void Move(string destination, bool overwrite)
         {
             ThrowIfDisposed();
-            DirectoryHandling.Move(this, destination, overwrite);
+            MoveInternal(destination, overwrite);
         }
 
         /// <inheritdoc/>
-        public override void Move(string destination, IProgress<StorageProgress>? progress, bool overwrite = false)
+        public void Move(string destination, IProgress<StorageProgress>? progress, bool overwrite = false)
         {
             ThrowIfDisposed();
-            DirectoryHandling.Move(this, destination, overwrite, progress);
+            MoveInternal(destination, overwrite, progress);
         }
 
         /// <inheritdoc/>
-        public override Task MoveAsync(string destination, bool overwrite, CancellationToken cancellationToken = default)
+        public Task MoveAsync(string destination, bool overwrite, CancellationToken cancellationToken = default)
         {
             ThrowIfDisposed();
-            return DirectoryHandling.MoveAsync(this, destination, overwrite, null, cancellationToken);
+            return MoveInternalAsync(destination, overwrite, null, cancellationToken);
         }
 
         /// <inheritdoc/>
-        public override Task MoveAsync(string destination, IProgress<StorageProgress>? progress, bool overwrite = false, CancellationToken cancellationToken = default)
+        public Task MoveAsync(string destination, IProgress<StorageProgress>? progress, bool overwrite = false, CancellationToken cancellationToken = default)
         {
             ThrowIfDisposed();
-            return DirectoryHandling.MoveAsync(this, destination, overwrite, progress, cancellationToken);
+            return MoveInternalAsync(destination, overwrite, progress, cancellationToken);
         }
 
         /// <inheritdoc/>
-        public override void Rename(string newName)
+        public void Rename(string newName)
         {
             ThrowIfDisposed();
 
             // ✅ NO LOCK - FileHandling.Rename already locks
-            DirectoryHandling.Rename(this, newName);
+            RenameInternal(newName);
         }
 
         /// <inheritdoc/>
-        public override async Task RenameAsync(string newName, CancellationToken cancellationToken = default)
+        public async Task RenameAsync(string newName, CancellationToken cancellationToken = default)
         {
             ThrowIfDisposed();
 
             // ✅ NO LOCK - FileHandling.Rename already locks
-            await DirectoryHandling.RenameAsync(this, newName, cancellationToken);
+            await RenameInternalAsync(newName, cancellationToken);
         }
 
         /// <inheritdoc/>
@@ -350,12 +310,6 @@ namespace Rheo.Storage
             base.Dispose();
             
             GC.SuppressFinalize(this);
-        }
-
-        /// <inheritdoc/>
-        protected override DirectoryInformation CreateInformationInstance()
-        {
-            return new DirectoryInformation(FullPath);
         }
 
         /// <summary>

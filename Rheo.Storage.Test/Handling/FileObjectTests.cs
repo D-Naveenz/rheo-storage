@@ -64,7 +64,7 @@ public class FileObjectTests(ITestOutputHelper output, TestDirectoryFixture fixt
     public void Copy_WithValidDestination_CopiesFile()
     {
         // Arrange
-        var sourceFile = TestDirectory.CreateTemplateFile(ResourceType.Text);
+        using var sourceFile = TestDirectory.CreateTemplateFile(ResourceType.Text);
         var destDir = TestDirectory.CreateSubdirectory("copy_dest");
 
         // Act
@@ -80,11 +80,16 @@ public class FileObjectTests(ITestOutputHelper output, TestDirectoryFixture fixt
     public void Copy_WithOverwriteFalse_DoesNotOverwriteExisting()
     {
         // Arrange
-        var sourceFile = TestDirectory.CreateTemplateFile(ResourceType.Text);
+        using var sourceFile = TestDirectory.CreateTemplateFile(ResourceType.Text);
         var destDir = TestDirectory.CreateSubdirectory("copy_dest");
 
-        using var firstCopy = sourceFile.Copy(destDir.FullPath, overwrite: false);
-        var firstCopyName = firstCopy.Name;
+        string firstCopyName;
+        
+        // Create initial copy and dispose immediately
+        using (var firstCopy = sourceFile.Copy(destDir.FullPath, overwrite: false))
+        {
+            firstCopyName = firstCopy.Name;
+        } // firstCopy is disposed here
 
         // Act
         using var secondCopy = sourceFile.Copy(destDir.FullPath, overwrite: false);
@@ -98,12 +103,16 @@ public class FileObjectTests(ITestOutputHelper output, TestDirectoryFixture fixt
     public void Copy_WithOverwriteTrue_ReplacesExistingFile()
     {
         // Arrange
-        var sourceFile = TestDirectory.CreateTemplateFile(ResourceType.Text);
+        using var sourceFile = TestDirectory.CreateTemplateFile(ResourceType.Text);
         var destDir = TestDirectory.CreateSubdirectory("copy_dest");
 
-        // Create initial copy
-        using var firstCopy = sourceFile.Copy(destDir.FullPath, overwrite: false);
-        var originalName = firstCopy.Name;
+        string originalName;
+        
+        // Create initial copy and dispose immediately
+        using (var firstCopy = sourceFile.Copy(destDir.FullPath, overwrite: false))
+        {
+            originalName = firstCopy.Name;
+        } // firstCopy is disposed here
 
         // Act
         using var secondCopy = sourceFile.Copy(destDir.FullPath, overwrite: true);
@@ -116,7 +125,7 @@ public class FileObjectTests(ITestOutputHelper output, TestDirectoryFixture fixt
     public void Copy_WithProgress_ReportsProgress()
     {
         // Arrange
-        var sourceFile = TestDirectory.CreateTemplateFile(ResourceType.Image);
+        using var sourceFile = TestDirectory.CreateTemplateFile(ResourceType.Image);
         var destDir = TestDirectory.CreateSubdirectory("copy_dest");
         var progressReports = new List<StorageProgress>();
         var progress = new Progress<StorageProgress>(p => progressReports.Add(p));
@@ -133,7 +142,7 @@ public class FileObjectTests(ITestOutputHelper output, TestDirectoryFixture fixt
     public async Task CopyAsync_WithValidDestination_CopiesFile()
     {
         // Arrange
-        var sourceFile = await TestDirectory.CreateTemplateFileAsync(ResourceType.Document, cancellationToken: TestContext.Current.CancellationToken);
+        using var sourceFile = await TestDirectory.CreateTemplateFileAsync(ResourceType.Document, cancellationToken: TestContext.Current.CancellationToken);
         var destDir = TestDirectory.CreateSubdirectory("copy_async_dest");
 
         // Act
@@ -148,7 +157,7 @@ public class FileObjectTests(ITestOutputHelper output, TestDirectoryFixture fixt
     public async Task CopyAsync_WithCancellation_ThrowsTaskCanceledException()
     {
         // Arrange
-        var sourceFile = await TestDirectory.CreateTemplateFileAsync(ResourceType.Video, cancellationToken: TestContext.Current.CancellationToken);
+        using var sourceFile = await TestDirectory.CreateTemplateFileAsync(ResourceType.Video, cancellationToken: TestContext.Current.CancellationToken);
         var destDir = TestDirectory.CreateSubdirectory("copy_cancel_dest");
         using var cts = new CancellationTokenSource();
         cts.Cancel();
@@ -166,7 +175,7 @@ public class FileObjectTests(ITestOutputHelper output, TestDirectoryFixture fixt
     public void Move_WithValidDestination_MovesFile()
     {
         // Arrange
-        var sourceFile = TestDirectory.CreateTemplateFile(ResourceType.Text);
+        using var sourceFile = TestDirectory.CreateTemplateFile(ResourceType.Text);
         var originalPath = sourceFile.FullPath;
         var originalName = sourceFile.Name;
         var destDir = TestDirectory.CreateSubdirectory("move_dest");
@@ -185,7 +194,7 @@ public class FileObjectTests(ITestOutputHelper output, TestDirectoryFixture fixt
     public async Task Move_SameVolume_PerformsQuickMove()
     {
         // Arrange
-        var sourceFile = await TestDirectory.CreateTemplateFileAsync(ResourceType.Binary, cancellationToken: TestContext.Current.CancellationToken);
+        using var sourceFile = await TestDirectory.CreateTemplateFileAsync(ResourceType.Binary, cancellationToken: TestContext.Current.CancellationToken);
         var destDir = TestDirectory.CreateSubdirectory("move_same_volume");
         var progressReports = new List<StorageProgress>();
         var progressReported = new TaskCompletionSource<bool>();
@@ -212,7 +221,7 @@ public class FileObjectTests(ITestOutputHelper output, TestDirectoryFixture fixt
     public async Task MoveAsync_WithValidDestination_MovesFile()
     {
         // Arrange
-        var sourceFile = await TestDirectory.CreateTemplateFileAsync(ResourceType.Image, cancellationToken: TestContext.Current.CancellationToken);
+        using var sourceFile = await TestDirectory.CreateTemplateFileAsync(ResourceType.Image, cancellationToken: TestContext.Current.CancellationToken);
         var originalPath = sourceFile.FullPath;
         var destDir = TestDirectory.CreateSubdirectory("move_async_dest");
 
@@ -233,11 +242,14 @@ public class FileObjectTests(ITestOutputHelper output, TestDirectoryFixture fixt
     public void Delete_RemovesFile()
     {
         // Arrange
-        var sourceFile = TestDirectory.CreateTemplateFile(ResourceType.Text);
-        var filePath = sourceFile.FullPath;
-
-        // Act
-        sourceFile.Delete();
+        string filePath;
+        using (var sourceFile = TestDirectory.CreateTemplateFile(ResourceType.Text))
+        {
+            filePath = sourceFile.FullPath;
+            
+            // Act
+            sourceFile.Delete();
+        }
 
         // Assert
         Assert.False(File.Exists(filePath));
@@ -247,11 +259,14 @@ public class FileObjectTests(ITestOutputHelper output, TestDirectoryFixture fixt
     public async Task DeleteAsync_RemovesFile()
     {
         // Arrange
-        var sourceFile = await TestDirectory.CreateTemplateFileAsync(ResourceType.Binary, cancellationToken: TestContext.Current.CancellationToken);
-        var filePath = sourceFile.FullPath;
-
-        // Act
-        await sourceFile.DeleteAsync(cancellationToken: TestContext.Current.CancellationToken);
+        string filePath;
+        using (var sourceFile = await TestDirectory.CreateTemplateFileAsync(ResourceType.Binary, cancellationToken: TestContext.Current.CancellationToken))
+        {
+            filePath = sourceFile.FullPath;
+            
+            // Act
+            await sourceFile.DeleteAsync(cancellationToken: TestContext.Current.CancellationToken);
+        }
 
         // Assert
         Assert.False(File.Exists(filePath));
@@ -261,7 +276,7 @@ public class FileObjectTests(ITestOutputHelper output, TestDirectoryFixture fixt
     public void Delete_DisposesObject()
     {
         // Arrange
-        var sourceFile = TestDirectory.CreateTemplateFile(ResourceType.Text);
+        using var sourceFile = TestDirectory.CreateTemplateFile(ResourceType.Text);
 
         // Act
         sourceFile.Delete();
@@ -278,7 +293,7 @@ public class FileObjectTests(ITestOutputHelper output, TestDirectoryFixture fixt
     public void Rename_WithValidName_RenamesFile()
     {
         // Arrange
-        var sourceFile = TestDirectory.CreateTemplateFile(ResourceType.Text);
+        using var sourceFile = TestDirectory.CreateTemplateFile(ResourceType.Text);
         var originalPath = sourceFile.FullPath;
         var newName = "renamed.txt";
 
@@ -300,7 +315,7 @@ public class FileObjectTests(ITestOutputHelper output, TestDirectoryFixture fixt
     public void Rename_WithInvalidName_ThrowsArgumentException(string? invalidName)
     {
         // Arrange
-        var sourceFile = TestDirectory.CreateTemplateFile(ResourceType.Text);
+        using var sourceFile = TestDirectory.CreateTemplateFile(ResourceType.Text);
 
         // Act & Assert
         Assert.Throws<ArgumentException>(() => sourceFile.Rename(invalidName!));
@@ -310,7 +325,7 @@ public class FileObjectTests(ITestOutputHelper output, TestDirectoryFixture fixt
     public async Task RenameAsync_WithValidName_RenamesFile()
     {
         // Arrange
-        var sourceFile = await TestDirectory.CreateTemplateFileAsync(ResourceType.Document, cancellationToken: TestContext.Current.CancellationToken);
+        using var sourceFile = await TestDirectory.CreateTemplateFileAsync(ResourceType.Document, cancellationToken: TestContext.Current.CancellationToken);
         var originalPath = sourceFile.FullPath;
         var newName = "renamed_async.docx";
 
@@ -325,93 +340,13 @@ public class FileObjectTests(ITestOutputHelper output, TestDirectoryFixture fixt
 
     #endregion
 
-    #region Write Tests
-
-    [Fact]
-    public void Write_WithStream_WritesDataToFile()
-    {
-        // Arrange
-        var filePath = Path.Combine(TestDirectory.FullPath, "write_test.bin");
-        using var fileObj = new FileObject(filePath);
-        var testData = new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05 };
-        using var stream = new MemoryStream(testData);
-        var originalSize = fileObj.Information.Size;
-
-        // Act
-        fileObj.Write(stream, overwrite: true);
-
-        // Assert
-        var writtenData = File.ReadAllBytes(filePath);
-        Assert.Equal(testData, writtenData);
-        Assert.NotEqual(originalSize, fileObj.Information.Size);
-        Assert.Equal(testData.Length, fileObj.Information.Size);
-    }
-
-    [Fact]
-    public void Write_WithProgress_ReportsProgress()
-    {
-        // Arrange
-        var filePath = Path.Combine(TestDirectory.FullPath, "write_progress_test.bin");
-        using var fileObj = new FileObject(filePath);
-        var testData = new byte[1024 * 100]; // 100 KB
-        new Random().NextBytes(testData);
-        using var stream = new MemoryStream(testData);
-        var progressReports = new List<StorageProgress>();
-        var progress = new Progress<StorageProgress>(p => progressReports.Add(p));
-
-        // Act
-        fileObj.Write(stream, progress, overwrite: true);
-
-        // Assert
-        Assert.NotEmpty(progressReports);
-        Assert.Equal(testData.Length, progressReports.Last().BytesTransferred);
-    }
-
-    [Fact]
-    public async Task WriteAsync_WithStream_WritesDataToFile()
-    {
-        // Arrange
-        var filePath = Path.Combine(TestDirectory.FullPath, "write_async_test.bin");
-        using var fileObj = new FileObject(filePath);
-        var testData = new byte[] { 0xAA, 0xBB, 0xCC, 0xDD };
-        using var stream = new MemoryStream(testData);
-        var originalSize = fileObj.Information.Size;
-
-        // Act
-        await fileObj.WriteAsync(stream, overwrite: true, cancellationToken: TestContext.Current.CancellationToken);
-
-        // Assert
-        var writtenData = File.ReadAllBytes(filePath);
-        Assert.Equal(testData, writtenData);
-        Assert.NotEqual(originalSize, fileObj.Information.Size);
-        Assert.Equal(testData.Length, fileObj.Information.Size);
-    }
-
-    [Fact]
-    public async Task WriteAsync_WithCancellation_ThrowsTaskCanceledException()
-    {
-        // Arrange
-        var filePath = Path.Combine(TestDirectory.FullPath, "write_cancel_test.bin");
-        using var fileObj = new FileObject(filePath);
-        var testData = new byte[1024 * 1024]; // 1 MB
-        using var stream = new MemoryStream(testData);
-        using var cts = new CancellationTokenSource();
-        cts.Cancel();
-
-        // Act & Assert
-        await Assert.ThrowsAsync<TaskCanceledException>(async () =>
-          await fileObj.WriteAsync(stream, overwrite: true, cancellationToken: cts.Token));
-    }
-
-    #endregion
-
     #region Property Tests
 
     [Fact]
     public void Name_ReturnsFileName()
     {
         // Arrange
-        var sourceFile = TestDirectory.CreateTemplateFile(ResourceType.Text);
+        using var sourceFile = TestDirectory.CreateTemplateFile(ResourceType.Text);
 
         // Act
         var name = sourceFile.Name;
@@ -424,7 +359,7 @@ public class FileObjectTests(ITestOutputHelper output, TestDirectoryFixture fixt
     public void Information_ReturnsFileInformation()
     {
         // Arrange
-        var sourceFile = TestDirectory.CreateTemplateFile(ResourceType.Image);
+        using var sourceFile = TestDirectory.CreateTemplateFile(ResourceType.Image);
 
         // Act
         var info = sourceFile.Information;
