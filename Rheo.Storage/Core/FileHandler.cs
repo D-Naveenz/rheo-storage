@@ -1,6 +1,6 @@
-﻿using System.Diagnostics;
-using Rheo.Storage.Contracts;
+﻿using Rheo.Storage.Contracts;
 using Rheo.Storage.Information;
+using System.Diagnostics;
 
 namespace Rheo.Storage.Core
 {
@@ -17,16 +17,23 @@ namespace Rheo.Storage.Core
         private FileInformation _information;
 
         /// <summary>
-        /// Initializes a new instance of the FileHandler class for the specified file name or path.
+        /// Initializes a new instance of the FileHandler class for the specified file path or name. Creates the file if
+        /// it does not already exist.
         /// </summary>
-        /// <param name="fileNameOrPath">The name or full path of the file to be handled. This value determines which file the handler will operate
-        /// on.</param>
-        public FileHandler(string fileNameOrPath) : base(fileNameOrPath)
+        /// <remarks>The file is opened and immediately closed to ensure its existence without locking it
+        /// for further operations. The file is shared for both reading and writing, allowing other processes to access
+        /// it concurrently.</remarks>
+        /// <param name="fileNameOrPath">The full path or name of the file to be handled. If the file does not exist, it will be created.</param>
+        public FileHandler(string fileNameOrPath) : base(fileNameOrPath, false)
         {
+            // Ensure the file exists without holding a stream open
+            // Use FileShare.ReadWrite to avoid blocking other operations
+            File.Open(FullPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.ReadWrite).Dispose();
+
             _information = new FileInformation(FullPath);
         }
 
-        internal FileHandler(FileInformation info) : base(info.AbsolutePath)
+        internal FileHandler(FileInformation info) : base(info.AbsolutePath, true)
         {
             _information = info;
         }

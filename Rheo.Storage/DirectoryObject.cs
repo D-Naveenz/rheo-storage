@@ -37,25 +37,21 @@ namespace Rheo.Storage
         }
 
         /// <summary>
-        /// Initializes a new instance of the DirectoryObject class to monitor the specified directory for changes.
+        /// Initializes a new instance of the DirectoryObject class and begins monitoring the specified directory for
+        /// file changes.
         /// </summary>
-        /// <remarks>The directory is monitored for file name, size, and last write time changes,
-        /// including changes in subdirectories. The watch interval is used to debounce rapid sequences of file system
-        /// events, reducing redundant processing.</remarks>
+        /// <remarks>The directory is monitored for file creation, deletion, and modification events,
+        /// including changes in subdirectories. The watch interval acts as a debounce period to reduce redundant
+        /// processing when multiple file system events occur in quick succession.</remarks>
         /// <param name="path">The full path of the directory to monitor. Cannot be null or empty.</param>
-        /// <param name="watchInterval">The interval, in milliseconds, to wait after the last detected change before processing events. Must be
-        /// greater than zero.</param>
+        /// <param name="watchInterval">The interval, in milliseconds, to wait after the last detected file system event before processing changes.
+        /// Must be greater than zero.</param>
         /// <exception cref="IOException">Thrown if the directory watcher cannot be initialized for the specified path.</exception>
         public DirectoryObject(string path, int watchInterval) : base(path)
         {
-            path = FullPath; // Ensure base class has processed the path
-
-            // Ensure the Directory exists
-            Directory.CreateDirectory(path);
-
             try
             {
-                _watcher = new FileSystemWatcher(path)
+                _watcher = new FileSystemWatcher(FullPath)
                 {
                     IncludeSubdirectories = true,
                     NotifyFilter = NotifyFilters.FileName
@@ -77,7 +73,7 @@ namespace Rheo.Storage
             }
             catch (Exception ex)
             {
-                throw new IOException($"Failed to initialize FileSystemWatcher for directory at path: {path}", ex);
+                throw new IOException($"Failed to initialize FileSystemWatcher for directory at path: {FullPath}", ex);
             }
         }
 

@@ -1,6 +1,6 @@
-﻿using System.Diagnostics;
-using Rheo.Storage.Contracts;
+﻿using Rheo.Storage.Contracts;
 using Rheo.Storage.Information;
+using System.Diagnostics;
 
 namespace Rheo.Storage.Core
 {
@@ -18,17 +18,20 @@ namespace Rheo.Storage.Core
         private DirectoryInformation _information;
 
         /// <summary>
-        /// Initializes a new instance of the DirectoryHandler class for the specified directory path or name.
+        /// Initializes a new instance of the DirectoryHandler class for the specified directory path or name. Ensures
+        /// that the directory exists, creating it if necessary.
         /// </summary>
-        /// <remarks>If a relative path is provided, it is resolved to an absolute path based on the
-        /// current working directory. The directory does not need to exist at the time of initialization.</remarks>
-        /// <param name="directoryNameOrPath">The name or full path of the directory to be managed. Cannot be null or empty.</param>
-        public DirectoryHandler(string directoryNameOrPath) : base(directoryNameOrPath)
+        /// <param name="directoryNameOrPath">The name or full path of the directory to manage. If a relative path is provided, it is resolved based on
+        /// the application's current working directory.</param>
+        public DirectoryHandler(string directoryNameOrPath) : base(directoryNameOrPath, false)
         {
+            // Ensure the Directory exists
+            Directory.CreateDirectory(FullPath);
+
             _information = new DirectoryInformation(FullPath);
         }
 
-        internal DirectoryHandler(DirectoryInformation info) : base(info.AbsolutePath)
+        internal DirectoryHandler(DirectoryInformation info) : base(info.AbsolutePath, true)
         {
             _information = info;
         }

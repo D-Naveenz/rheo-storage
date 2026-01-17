@@ -1,6 +1,6 @@
 ﻿using Rheo.Storage.Contracts;
 
-namespace Rheo.Storage
+namespace Rheo.Storage.Core
 {
     /// <summary>
     /// Provides an abstract base class for file system storage objects, encapsulating common functionality such as path
@@ -12,29 +12,40 @@ namespace Rheo.Storage
     /// provide specific storage behaviors. The class supports change notification through the Changed event and
     /// implements resource cleanup via IDisposable. Instances should not be used after they have been
     /// disposed.</remarks>
-    public abstract class StorageObject: IStorageObject    // Using Curiously Recurring Template Pattern (CRTP)
+    public abstract class StorageObject : IStorageObject    // Using Curiously Recurring Template Pattern (CRTP)
     {
         private const int MIN_BUFFER_SIZE = 1024; // 1KB
         private const int MAX_BUFFER_SIZE = 16 * 1024 * 1024; // 16MB
-        
+
         private readonly SemaphoreSlim _stateLockingSemaphore = new(1, 1);
         private bool _disposed;
 
         /// <summary>
-        /// Initializes a new instance of the StorageObject class for the specified file or path.
+        /// Initializes a new instance of the StorageObject class with the specified file system path, optionally
+        /// validating and creating the parent directory if necessary.
         /// </summary>
-        /// <remarks>If the specified path does not exist, the constructor creates the necessary parent
-        /// directory. This ensures that the storage object is always associated with a valid file system
-        /// location.</remarks>
-        /// <param name="fileNameOrPath">The file name or full path to associate with this storage object. Cannot be null or empty.</param>
-        public StorageObject(string fileNameOrPath)
+        /// <remarks>If validated is false, the constructor validates the provided path and creates the
+        /// parent directory if it does not already exist. This ensures that the storage object is always associated
+        /// with a valid and accessible file system location.</remarks>
+        /// <param name="path">The file system path to associate with the storage object. This can be either a validated or unvalidated
+        /// path, depending on the value of the validated parameter.</param>
+        /// <param name="validated">true to indicate that the path has already been validated; false to validate the path and ensure the parent
+        /// directory exists before use.</param>
+        public StorageObject(string path, bool validated)
         {
-            FullPath = GetValidPath(fileNameOrPath);
-
-            // Ensure the root path exists.
-            if (!Directory.Exists(ParentDirectory))
+            if (validated)
             {
-                Directory.CreateDirectory(ParentDirectory);
+                FullPath = path;
+            }
+            else
+            {
+                FullPath = GetValidPath(path);
+
+                // Ensure the root path exists.
+                if (!Directory.Exists(ParentDirectory))
+                {
+                    Directory.CreateDirectory(ParentDirectory);
+                }
             }
 
             // Subscribe to change events
