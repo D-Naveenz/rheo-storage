@@ -98,6 +98,10 @@ namespace Rheo.Storage.Core
 
                 // Wait for all file copies to complete
                 await Task.WhenAll(copyTasks);
+                
+                // Honor cancellation even if all copies completed successfully
+                // This ensures we don't return success if cancellation was requested during the operation
+                cancellationToken.ThrowIfCancellationRequested();
             }
             catch (OperationCanceledException)
             {

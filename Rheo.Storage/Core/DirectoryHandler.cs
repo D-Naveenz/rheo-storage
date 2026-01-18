@@ -95,6 +95,12 @@ namespace Rheo.Storage.Core
                 WaitForDirectoryAvailable(fullPath);    // Ensure source directory is accessible
 
                 // Step 1: Create all directories first (including empty ones)
+                // Ensure the destination root directory exists
+                if (!Directory.Exists(destination))
+                {
+                    Directory.CreateDirectory(destination);
+                }
+                
                 var directories = Directory.GetDirectories(fullPath, "*", SearchOption.AllDirectories)
                     .Select(dir => Path.Combine(destination, Path.GetRelativePath(fullPath, dir)));
                 foreach (var targetDir in directories)

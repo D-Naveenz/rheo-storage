@@ -96,6 +96,8 @@ public class DirectoryObjectEdgeCaseTests(ITestOutputHelper output, TestDirector
             {
                 // First progress report means copy has started
                 copyStarted.TrySetResult(true);
+                // Cancel immediately to ensure we catch it mid-operation
+                cts.Cancel();
             }
         });
 
@@ -105,15 +107,9 @@ public class DirectoryObjectEdgeCaseTests(ITestOutputHelper output, TestDirector
         // Wait for copy to actually start (with timeout)
         var started = await Task.WhenAny(copyStarted.Task, Task.Delay(2000, TestContext.Current.CancellationToken)) == copyStarted.Task;
         
-        if (started)
+        if (!started)
         {
-            // Cancel after copy has started but before it completes
-            await Task.Delay(10, TestContext.Current.CancellationToken); // Let it do a bit more work
-            cts.Cancel();
-        }
-        else
-        {
-            // Fallback: cancel after a short delay if progress never reported
+            // If progress never reported, cancel anyway
             cts.Cancel();
         }
 
