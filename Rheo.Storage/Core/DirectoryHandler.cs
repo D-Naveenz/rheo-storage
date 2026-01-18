@@ -15,7 +15,9 @@ namespace Rheo.Storage.Core
     /// scenarios.</remarks>
     public abstract partial class DirectoryHandler : StorageObject
     {
-        private DirectoryInformation _information;
+        private DirectoryInformation? _cachedInformation;
+        private DateTime _lastCacheTime = DateTime.MinValue;
+        private static readonly TimeSpan CacheValidityPeriod = TimeSpan.FromSeconds(1);
 
         /// <summary>
         /// Initializes a new instance of the DirectoryHandler class for the specified directory path or name. Ensures
@@ -27,13 +29,12 @@ namespace Rheo.Storage.Core
         {
             // Ensure the Directory exists
             Directory.CreateDirectory(FullPath);
-
-            _information = new DirectoryInformation(FullPath);
         }
 
         internal DirectoryHandler(DirectoryInformation info) : base(info.AbsolutePath, true)
         {
-            _information = info;
+            _cachedInformation = info;
+            _lastCacheTime = DateTime.UtcNow;
         }
 
         /// <inheritdoc/>
@@ -42,12 +43,21 @@ namespace Rheo.Storage.Core
             get
             {
                 ThrowIfDisposed();
-                return _information;
+                
+                // Use time-based cache: refresh if cache is older than validity period
+                if (_cachedInformation == null || DateTime.UtcNow - _lastCacheTime > CacheValidityPeriod)
+                {
+                    _cachedInformation = new DirectoryInformation(FullPath);
+                    _lastCacheTime = DateTime.UtcNow;
+                }
+                
+                return _cachedInformation;
             }
             protected set
             {
                 ThrowIfDisposed();
-                _information = (DirectoryInformation)value;
+                _cachedInformation = (DirectoryInformation)value;
+                _lastCacheTime = DateTime.UtcNow;
             }
         }
 
@@ -82,6 +92,8 @@ namespace Rheo.Storage.Core
             // OPERATION
             try
             {
+                WaitForDirectoryAvailable(fullPath);    // Ensure source directory is accessible
+
                 // Step 1: Create all directories first (including empty ones)
                 var directories = Directory.GetDirectories(fullPath, "*", SearchOption.AllDirectories)
                     .Select(dir => Path.Combine(destination, Path.GetRelativePath(fullPath, dir)));
@@ -139,91 +151,6 @@ namespace Rheo.Storage.Core
         }
 
         /// <summary>
-        /// Copies the contents of the current directory to the specified destination directory with synchronous progress reporting.
-        /// </summary>
-        /// <remarks>All files and subdirectories from the source directory are recursively copied to the
-        /// destination. Unlike the <see cref="IProgress{T}"/> overload, this method uses synchronous callbacks
-        /// that are invoked immediately on the calling thread.</remarks>
-        /// <param name="destination">The path to the destination directory where the contents will be copied. If the directory does not exist, it
-        /// will be created.</param>
-        /// <param name="overwrite">true to overwrite existing files in the destination directory; otherwise, false.</param>
-        /// <param name="progress">An optional synchronous progress callback that receives updates about the copy operation. May be null if progress
-        /// reporting is not required.</param>
-        /// <returns>A DirectoryInformation object representing the destination directory after the copy operation completes.</returns>
-        /// <exception cref="InvalidOperationException">Thrown if the copy operation fails for any reason, such as an I/O error or invalid destination path.</exception>
-        internal DirectoryInformation CopyInternal(
-            string destination,
-            bool overwrite,
-            IProgressCallback<StorageProgress>? progress)
-        {
-            // INITIALIZATION
-            ProcessDestinationPath(ref destination, Name, overwrite);
-            var fullPath = FullPath;
-            var files = Directory.GetFiles(fullPath, "*", SearchOption.AllDirectories);
-            var totalBytes = Information!.Size;
-            long bytesTransferred = 0;
-            var stopwatch = Stopwatch.StartNew();
-
-            // OPERATION
-            try
-            {
-                // Step 1: Create all directories first (including empty ones)
-                var directories = Directory.GetDirectories(fullPath, "*", SearchOption.AllDirectories)
-                    .Select(dir => Path.Combine(destination, Path.GetRelativePath(fullPath, dir)));
-                foreach (var targetDir in directories)
-                {
-                    if (!Directory.Exists(targetDir))
-                    {
-                        Directory.CreateDirectory(targetDir);
-                    }
-                }
-
-                // Step 2: Copy all files using FileHandling infrastructure
-                foreach (var filePath in files)
-                {
-                    var relativePath = Path.GetRelativePath(fullPath, filePath);
-                    var targetFilePath = Path.Combine(destination, relativePath);
-                    
-                    using var fileObj = new FileObject(filePath);
-                    
-                    // Create a progress wrapper to aggregate progress
-                    IProgressCallback<StorageProgress>? fileProgress = null;
-                    if (progress != null)
-                    {
-                        long previousBytes = bytesTransferred;
-                        fileProgress = new SyncProgress<StorageProgress>(sp =>
-                        {
-                            // Calculate delta since last update
-                            var delta = sp.BytesTransferred - (bytesTransferred - previousBytes);
-                            bytesTransferred += delta;
-                            
-                            double elapsedSeconds = stopwatch.Elapsed.TotalSeconds;
-                            double bytesPerSecond = elapsedSeconds > 0 ? bytesTransferred / elapsedSeconds : 0;
-                            
-                            progress.Report(new StorageProgress
-                            {
-                                TotalBytes = totalBytes,
-                                BytesTransferred = bytesTransferred,
-                                BytesPerSecond = bytesPerSecond
-                            });
-                        });
-                    }
-
-                    // Use FileHandling.Copy for efficient file copying
-                    var targetDir = Path.GetDirectoryName(targetFilePath)!;
-                    fileObj.CopyInternal(targetDir, overwrite, fileProgress);
-                }
-            }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException($"Failed to copy directory from '{fullPath}' to '{destination}'.", ex);
-            }
-
-            // FINALIZATION - Return directory information
-            return new DirectoryInformation(destination);
-        }
-
-        /// <summary>
         /// Deletes the directory represented by this instance and raises a change notification event.
         /// </summary>
         /// <remarks>If the directory does not exist, the deletion is treated as successful and a change
@@ -232,11 +159,13 @@ namespace Rheo.Storage.Core
         /// <exception cref="InvalidOperationException">Thrown if the directory cannot be deleted due to an I/O error or insufficient permissions.</exception>
         internal void DeleteInternal()
         {
+            var path = FullPath; // Store path before raising event
+
             lock (StateLock)
             {
                 try
                 {
-                    var path = FullPath; // Store path before raising event
+                    WaitForDirectoryAvailable(path);    // Ensure source directory is accessible
 
                     Directory.Delete(path, true);
 
@@ -282,6 +211,8 @@ namespace Rheo.Storage.Core
             {
                 try
                 {
+                    WaitForDirectoryAvailable(FullPath);    // Ensure source directory is accessible
+
                     if (IsInTheSameRoot(destination))
                     {
                         // Handle overwrite for same-volume moves
@@ -361,6 +292,8 @@ namespace Rheo.Storage.Core
             {
                 try
                 {
+                    WaitForDirectoryAvailable(FullPath);    // Ensure source directory is accessible
+
                     Directory.Move(FullPath, destination);
 
                     // FINALIZATION - Create new information and raise event

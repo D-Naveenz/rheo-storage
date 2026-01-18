@@ -36,7 +36,7 @@ namespace Rheo.Storage.Core
             await _lock.WaitAsync(cancellationToken);
             try
             {
-                await WaitForFileUnlockAsync(FullPath, cancellationToken: cancellationToken);    // Ensure no other operations are in progress
+                await WaitForFileAvailableAsync(FullPath, cancellationToken: cancellationToken);    // Ensure no other operations are in progress
 
                 using var sourceStream = new FileStream(
                     FullPath,
@@ -84,7 +84,7 @@ namespace Rheo.Storage.Core
             try
             {
                 var path = FullPath; // Store path before raising event
-                await WaitForFileUnlockAsync(path, cancellationToken: cancellationToken);    // Ensure no other operations are in progress
+                await WaitForFileAvailableAsync(path, cancellationToken: cancellationToken);    // Ensure no other operations are in progress
 
                 await Task.Run(() =>
                 {
@@ -140,7 +140,7 @@ namespace Rheo.Storage.Core
             await _lock.WaitAsync(cancellationToken);
             try
             {
-                await WaitForFileUnlockAsync(FullPath, cancellationToken: cancellationToken);    // Ensure no other operations are in progress
+                await WaitForFileAvailableAsync(FullPath, cancellationToken: cancellationToken);    // Ensure no other operations are in progress
 
                 if (IsInTheSameRoot(destination))
                 {
@@ -227,7 +227,7 @@ namespace Rheo.Storage.Core
             await _lock.WaitAsync(cancellationToken);
             try
             {
-                await WaitForFileUnlockAsync(FullPath, cancellationToken: cancellationToken);    // Ensure no other operations are in progress
+                await WaitForFileAvailableAsync(FullPath, cancellationToken: cancellationToken);    // Ensure no other operations are in progress
 
                 await Task.Run(() =>
                 {
@@ -324,7 +324,7 @@ namespace Rheo.Storage.Core
             if (overwrite && File.Exists(destinationPath))
             {
                 // Ensure no other operations are in progress
-                await WaitForFileUnlockAsync(destinationPath, cancellationToken: cancellationToken);
+                await WaitForFileAvailableAsync(destinationPath, cancellationToken: cancellationToken);
             }
 
             using var destStream = new FileStream(

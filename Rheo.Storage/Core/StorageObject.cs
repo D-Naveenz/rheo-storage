@@ -1,4 +1,5 @@
-﻿using Rheo.Storage.Contracts;
+﻿using Rheo.Storage.COM;
+using Rheo.Storage.Contracts;
 
 namespace Rheo.Storage.Core
 {
@@ -176,23 +177,26 @@ namespace Rheo.Storage.Core
         }
 
         /// <summary>
-        /// Asynchronously waits until the specified file is unlocked (available for exclusive access).
+        /// Asynchronously waits until the specified file becomes available for exclusive read/write access, or until
+        /// the operation times out.
         /// </summary>
-        /// <param name="filePath">Full path to the file.</param>
-        /// <param name="timeoutMilliseconds">Maximum wait time in milliseconds (0 for infinite).</param>
-        /// <param name="checkIntervalMilliseconds">Delay between checks in milliseconds.</param>
-        /// <param name="cancellationToken">Cancellation token to cancel the wait operation.</param>
-        /// <returns>A task that represents the asynchronous operation. The task result is true if the file became available, false if timed out.</returns>
-        /// <exception cref="ArgumentException">Thrown if the file path is null or empty.</exception>
-        /// <exception cref="FileNotFoundException">Thrown if the file does not exist.</exception>
-        /// <exception cref="OperationCanceledException">Thrown if the operation is cancelled.</exception>
-        protected static async Task<bool> WaitForFileUnlockAsync(string filePath, int timeoutMilliseconds = 10000, int checkIntervalMilliseconds = 200, CancellationToken cancellationToken = default)
+        /// <remarks>This method repeatedly attempts to open the file with exclusive access to determine
+        /// its availability. If the file does not exist or remains locked by another process, the method waits and
+        /// retries until the timeout is reached or the operation is canceled. The method is thread-safe and can be used
+        /// to coordinate access to files shared between processes.</remarks>
+        /// <param name="filePath">The full path of the file to check for availability. Cannot be null or empty.</param>
+        /// <param name="timeoutMilliseconds">The maximum time, in milliseconds, to wait for the file to become available. Specify 0 or a negative value
+        /// to wait indefinitely. The default is 10,000 milliseconds (10 seconds).</param>
+        /// <param name="checkIntervalMilliseconds">The interval, in milliseconds, between successive checks for file availability. The default is 200
+        /// milliseconds.</param>
+        /// <param name="cancellationToken">A cancellation token that can be used to cancel the wait operation.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result is <see langword="true"/> if the file
+        /// became available within the specified timeout; otherwise, <see langword="false"/>.</returns>
+        /// <exception cref="ArgumentException">Thrown if <paramref name="filePath"/> is null or empty.</exception>
+        protected static async Task<bool> WaitForFileAvailableAsync(string filePath, int timeoutMilliseconds = 10000, int checkIntervalMilliseconds = 200, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(filePath))
                 throw new ArgumentException("File path cannot be null or empty.", nameof(filePath));
-
-            if (!File.Exists(filePath))
-                throw new FileNotFoundException("File not found.", filePath);
 
             var startTime = DateTime.UtcNow;
 
@@ -200,11 +204,18 @@ namespace Rheo.Storage.Core
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
+                // First, check if file exists
+                if (!File.Exists(filePath))
+                {
+                    // File doesn't exist yet, keep waiting
+                    goto CheckTimeout;
+                }
+
                 try
                 {
                     // Try opening with exclusive access
                     using FileStream fs = new(filePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
-                    // Successfully opened — file is unlocked
+                    // Successfully opened — file is unlocked and available
                     return true;
                 }
                 catch (IOException)
@@ -216,6 +227,7 @@ namespace Rheo.Storage.Core
                     // File might be read-only or locked by OS
                 }
 
+            CheckTimeout:
                 // Check timeout
                 if (timeoutMilliseconds > 0 &&
                     (DateTime.UtcNow - startTime).TotalMilliseconds > timeoutMilliseconds)
@@ -228,17 +240,120 @@ namespace Rheo.Storage.Core
         }
 
         /// <summary>
-        /// Synchronously waits until the specified file is unlocked (available for exclusive access).
+        /// Waits for a file to become available for access within a specified timeout period.
         /// </summary>
-        /// <param name="filePath">Full path to the file.</param>
-        /// <param name="timeoutMilliseconds">Maximum wait time in milliseconds (0 for infinite).</param>
-        /// <param name="checkIntervalMilliseconds">Delay between checks in milliseconds.</param>
-        /// <returns>True if the file became available, false if timed out.</returns>
-        /// <exception cref="ArgumentException">Thrown if the file path is null or empty.</exception>
-        /// <exception cref="FileNotFoundException">Thrown if the file does not exist.</exception>
-        protected static bool WaitForFileUnlock(string filePath, int timeoutMilliseconds = 10000, int checkIntervalMilliseconds = 200)
+        /// <remarks>This method blocks the calling thread until the file is available or the timeout
+        /// elapses. Use this method when synchronous waiting is required. For asynchronous scenarios, use
+        /// WaitForFileAvailableAsync.</remarks>
+        /// <param name="filePath">The full path of the file to check for availability. Cannot be null or empty.</param>
+        /// <param name="timeoutMilliseconds">The maximum amount of time, in milliseconds, to wait for the file to become available. Must be greater than
+        /// zero. The default is 10,000 milliseconds.</param>
+        /// <param name="checkIntervalMilliseconds">The interval, in milliseconds, between availability checks. Must be greater than zero. The default is 200
+        /// milliseconds.</param>
+        /// <returns>true if the file becomes available within the specified timeout period; otherwise, false.</returns>
+        protected static bool WaitForFileAvailable(string filePath, int timeoutMilliseconds = 10000, int checkIntervalMilliseconds = 200)
         {
-            return WaitForFileUnlockAsync(filePath, timeoutMilliseconds, checkIntervalMilliseconds, CancellationToken.None)
+            return WaitForFileAvailableAsync(filePath, timeoutMilliseconds, checkIntervalMilliseconds, CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
+        }
+
+        /// <summary>
+        /// Asynchronously waits until the specified directory becomes available for access or until the operation times
+        /// out.
+        /// </summary>
+        /// <remarks>This method checks for both the existence of the directory and the ability to access
+        /// it. On Windows, it attempts to open a handle to the directory; on other platforms, it tries to enumerate
+        /// files within the directory. The method periodically checks availability until the directory is accessible,
+        /// the timeout elapses, or the operation is canceled.</remarks>
+        /// <param name="dirPath">The full path of the directory to check for availability. Cannot be null or empty.</param>
+        /// <param name="timeoutMilliseconds">The maximum time, in milliseconds, to wait for the directory to become available. Specify 0 for an infinite
+        /// timeout. The default is 10,000 milliseconds.</param>
+        /// <param name="checkIntervalMilliseconds">The interval, in milliseconds, between successive checks for directory availability. The default is 200
+        /// milliseconds.</param>
+        /// <param name="cancellationToken">A cancellation token that can be used to cancel the wait operation.</param>
+        /// <returns>A task that represents the asynchronous operation. The task result is <see langword="true"/> if the
+        /// directory became available within the specified timeout; otherwise, <see langword="false"/>.</returns>
+        /// <exception cref="ArgumentException">Thrown if <paramref name="dirPath"/> is null or empty.</exception>
+        protected static async Task<bool> WaitForDirectoryAvailableAsync(string dirPath, int timeoutMilliseconds = 10000, int checkIntervalMilliseconds = 200, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(dirPath))
+                throw new ArgumentException("Directory path cannot be null or empty.", nameof(dirPath));
+
+            var startTime = DateTime.UtcNow;
+
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // First, check if directory exists
+                if (!Directory.Exists(dirPath))
+                {
+                    // Directory doesn't exist yet, keep waiting
+                    goto CheckTimeout;
+                }
+
+                if (OperatingSystem.IsWindows())
+                {
+                    // On Windows, try to open a handle to the directory
+                    using var handle = Win32.CreateFile(
+                        dirPath,
+                        Win32.GENERIC_READ,
+                        Win32.FILE_SHARE_READ | Win32.FILE_SHARE_WRITE | Win32.FILE_SHARE_DELETE,
+                        IntPtr.Zero,
+                        Win32.OPEN_EXISTING,
+                        Win32.FILE_FLAG_BACKUP_SEMANTICS,    // Required for directories
+                        IntPtr.Zero);
+
+                    // If we got a valid handle, the directory is available
+                    if (!handle.IsInvalid)
+                        return true;
+                }
+                else
+                {
+                    // On non-Windows systems, try to enumerate files to test access
+                    try
+                    {
+                        _ = Directory.GetFiles(dirPath);
+                        return true;
+                    }
+                    catch (UnauthorizedAccessException)
+                    {
+                        // Access denied, continue waiting
+                    }
+                    catch (IOException)
+                    {
+                        // Directory is busy, continue waiting
+                    }
+                }
+
+            CheckTimeout:
+                // Check timeout
+                if (timeoutMilliseconds > 0 &&
+                    (DateTime.UtcNow - startTime).TotalMilliseconds > timeoutMilliseconds)
+                {
+                    return false; // Timed out
+                }
+
+                await Task.Delay(checkIntervalMilliseconds, cancellationToken);
+            }
+        }
+
+        /// <summary>
+        /// Waits for the specified directory to become available within a given timeout period.
+        /// </summary>
+        /// <remarks>This method blocks the calling thread until the directory is available or the timeout
+        /// elapses. Use this method when synchronous waiting is required; for asynchronous scenarios, use
+        /// WaitForDirectoryAvailableAsync.</remarks>
+        /// <param name="dirPath">The full path of the directory to check for availability. Cannot be null or empty.</param>
+        /// <param name="timeoutMilliseconds">The maximum amount of time, in milliseconds, to wait for the directory to become available. Must be greater
+        /// than zero. The default is 10,000 milliseconds.</param>
+        /// <param name="checkIntervalMilliseconds">The interval, in milliseconds, between availability checks. Must be greater than zero. The default is 200
+        /// milliseconds.</param>
+        /// <returns>true if the directory becomes available within the specified timeout period; otherwise, false.</returns>
+        protected static bool WaitForDirectoryAvailable(string dirPath, int timeoutMilliseconds = 10000, int checkIntervalMilliseconds = 200)
+        {
+            return WaitForDirectoryAvailableAsync(dirPath, timeoutMilliseconds, checkIntervalMilliseconds, CancellationToken.None)
                 .GetAwaiter()
                 .GetResult();
         }

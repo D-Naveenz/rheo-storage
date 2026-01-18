@@ -60,14 +60,6 @@ namespace Rheo.Storage
         }
 
         /// <inheritdoc/>
-        public IFileObject Copy(string destination, IProgressCallback<StorageProgress>? progress, bool overwrite = false)
-        {
-            ThrowIfDisposed();
-            var info = CopyInternal(destination, overwrite, progress);
-            return new FileObject(info);
-        }
-
-        /// <inheritdoc/>
         public async Task<IFileObject> CopyAsync(string destination, bool overwrite, CancellationToken cancellationToken = default)
         {
             ThrowIfDisposed();
@@ -106,13 +98,6 @@ namespace Rheo.Storage
 
         /// <inheritdoc/>
         public void Move(string destination, IProgress<StorageProgress>? progress, bool overwrite = false)
-        {
-            ThrowIfDisposed();
-            MoveInternal(destination, overwrite, progress);
-        }
-
-        /// <inheritdoc/>
-        public void Move(string destination, IProgressCallback<StorageProgress>? progress, bool overwrite = false)
         {
             ThrowIfDisposed();
             MoveInternal(destination, overwrite, progress);

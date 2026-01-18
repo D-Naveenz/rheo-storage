@@ -201,14 +201,6 @@ namespace Rheo.Storage
         }
 
         /// <inheritdoc/>
-        public IDirectoryObject Copy(string destination, IProgressCallback<StorageProgress>? progress, bool overwrite = false)
-        {
-            ThrowIfDisposed();
-            var info = CopyInternal(destination, overwrite, progress);
-            return new DirectoryObject(info);
-        }
-
-        /// <inheritdoc/>
         public async Task<IDirectoryObject> CopyAsync(string destination, bool overwrite, CancellationToken cancellationToken = default)
         {
             ThrowIfDisposed();

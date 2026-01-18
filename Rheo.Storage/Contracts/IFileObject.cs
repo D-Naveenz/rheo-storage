@@ -45,20 +45,6 @@ namespace Rheo.Storage.Contracts
         IFileObject Copy(string destination, IProgress<StorageProgress>? progress, bool overwrite = false);
 
         /// <summary>
-        /// Creates a copy of the current file at the specified destination path with synchronous progress reporting.
-        /// </summary>
-        /// <remarks>Unlike the <see cref="IProgress{T}"/> overload, this method uses synchronous callbacks
-        /// that are invoked immediately on the calling thread during the copy operation, eliminating the need
-        /// for synchronization context handling.</remarks>
-        /// <param name="destination">The full path where the file will be copied. This must include the file name and extension. Cannot be null
-        /// or empty.</param>
-        /// <param name="progress">An optional synchronous progress callback that receives updates about the copy operation. May be null if progress
-        /// reporting is not required.</param>
-        /// <param name="overwrite">true to overwrite the destination file if it already exists; otherwise, false.</param>
-        /// <returns>A <see cref="IFileObject"/> representing the newly copied file at the destination path.</returns>
-        IFileObject Copy(string destination, IProgressCallback<StorageProgress>? progress, bool overwrite = false);
-
-        /// <summary>
         /// Asynchronously copies the current file to the specified destination path.
         /// </summary>
         /// <param name="destination">The path to which the file will be copied. This must be a valid file path and cannot be null or empty.</param>
@@ -110,16 +96,6 @@ namespace Rheo.Storage.Contracts
         /// <param name="progress">An optional progress reporter for move progress.</param>
         /// <param name="overwrite">true to overwrite the destination if it exists; otherwise, false.</param>
         void Move(string destination, IProgress<StorageProgress>? progress, bool overwrite = false);
-
-        /// <summary>
-        /// Moves the storage object to the specified destination path with synchronous progress reporting, optionally overwriting the destination if it exists.
-        /// </summary>
-        /// <remarks>Unlike the <see cref="IProgress{T}"/> overload, this method uses synchronous callbacks
-        /// that are invoked immediately on the calling thread during the move operation.</remarks>
-        /// <param name="destination">The destination path where the object will be moved.</param>
-        /// <param name="progress">An optional synchronous progress callback for move progress.</param>
-        /// <param name="overwrite">true to overwrite the destination if it exists; otherwise, false.</param>
-        void Move(string destination, IProgressCallback<StorageProgress>? progress, bool overwrite = false);
 
         /// <summary>
         /// Asynchronously moves the storage object to the specified destination path, optionally overwriting the destination if it exists.

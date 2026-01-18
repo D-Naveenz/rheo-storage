@@ -38,6 +38,8 @@ namespace Rheo.Storage.Core
             // OPERATION
             try
             {
+                await WaitForDirectoryAvailableAsync(fullPath, cancellationToken: cancellationToken);   // Ensure source directory is accessible
+
                 // Step 1: Create all directories first (including empty ones)
                 var directories = Directory.GetDirectories(fullPath, "*", SearchOption.AllDirectories);
                 foreach (var dir in directories)
@@ -130,11 +132,12 @@ namespace Rheo.Storage.Core
         internal async Task DeleteInternalAsync(CancellationToken cancellationToken = default)
         {
             var _lock = Semaphore;
+            var path = FullPath; // Store path before raising event
 
             await _lock.WaitAsync(cancellationToken);
             try
             {
-                var path = FullPath; // Store path before raising event
+                await WaitForDirectoryAvailableAsync(path, cancellationToken: cancellationToken);   // Ensure source directory is accessible
 
                 await Task.Run(() => Directory.Delete(path, true), cancellationToken);
 
@@ -187,6 +190,8 @@ namespace Rheo.Storage.Core
             await _lock.WaitAsync(cancellationToken);
             try
             {
+                await WaitForDirectoryAvailableAsync(FullPath, cancellationToken: cancellationToken);   // Ensure source directory is accessible
+
                 if (IsInTheSameRoot(destination))
                 {
                     // Handle overwrite for same-volume moves
@@ -278,6 +283,8 @@ namespace Rheo.Storage.Core
             await _lock.WaitAsync(cancellationToken);
             try
             {
+                await WaitForDirectoryAvailableAsync(FullPath, cancellationToken: cancellationToken);   // Ensure source directory is accessible
+
                 await Task.Run(() => Directory.Move(FullPath, destination), cancellationToken);
 
                 // FINALIZATION - Create new information and raise event
