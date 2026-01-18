@@ -17,6 +17,7 @@
     <PackageTags>definition; extension; types; asynchronous; mime; file-handling; directory-management; magic-numbers; file-analysis; rheo;</PackageTags>
     <RepositoryUrl>https://github.com/D-Naveenz/rheo-storage</RepositoryUrl>
     <PackageProjectUrl>https://github.com/D-Naveenz/rheo-storage/wiki</PackageProjectUrl>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
