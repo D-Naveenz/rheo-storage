@@ -5,12 +5,12 @@ using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 
-namespace Rheo.Storage.COM
+namespace Rheo.Storage.Interop
 {
     [SupportedOSPlatform("windows")]
     internal static partial class Win32
     {
-        #region Windows COM Types
+        #region Windows Native Types
         // Flags for SHGetFileInfo - can be combined with bitwise OR
         [Flags]
         private enum SHGFI : uint

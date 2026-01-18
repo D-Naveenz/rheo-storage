@@ -1,4 +1,4 @@
-using Rheo.Storage.Contracts;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Rheo.Storage
 {
@@ -16,6 +16,7 @@ namespace Rheo.Storage
         /// </summary>
         /// <param name="callback">The callback to invoke when progress is reported.</param>
         /// <exception cref="ArgumentNullException">Thrown when <paramref name="callback"/> is null.</exception>
+        [SuppressMessage("Style", "IDE0290:Use primary constructor", Justification = "<Pending>")]
         public SyncProgress(Action<T> callback)
         {
             _callback = callback ?? throw new ArgumentNullException(nameof(callback));

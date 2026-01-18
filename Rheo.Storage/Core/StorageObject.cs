@@ -1,4 +1,4 @@
-﻿using Rheo.Storage.COM;
+﻿using Rheo.Storage.Interop;
 using Rheo.Storage.Contracts;
 
 namespace Rheo.Storage.Core

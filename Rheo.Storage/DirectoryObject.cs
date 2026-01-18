@@ -24,9 +24,9 @@ namespace Rheo.Storage
         public const int DefaultWatchInterval = 500; // milliseconds
 
         private readonly ConcurrentBag<string> _changedFiles = [];
-        private readonly Timer? _debounceTimer;
         private readonly FileSystemWatcher _watcher;
-        
+        private Timer? _debounceTimer;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="DirectoryObject"/> class to monitor the specified directory for changes,
         /// using a default watch interval of 500 milliseconds.
@@ -279,6 +279,9 @@ namespace Rheo.Storage
         /// <inheritdoc/>
         public override void Dispose()
         {
+            Timer? timerToDispose = null;
+            ManualResetEvent? waitHandle = null;
+            
             lock (StateLock)
             {
                 // Check if already disposed
@@ -288,18 +291,30 @@ namespace Rheo.Storage
                 // Disable watcher events before disposing
                 if (_watcher != null)
                 {
-                    _watcher.EnableRaisingEvents = false;
                     _watcher.Changed -= Watcher_Changed;
                     _watcher.Created -= Watcher_Changed;
                     _watcher.Deleted -= Watcher_Changed;
                 }
 
-                // Stop and dispose timer
-                _debounceTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-                _debounceTimer?.Dispose();
+                // Stop timer and prepare for disposal (don't wait inside lock)
+                if (_debounceTimer != null)
+                {
+                    _debounceTimer.Change(Timeout.Infinite, Timeout.Infinite);
+                    timerToDispose = _debounceTimer;
+                    waitHandle = new ManualResetEvent(false);
+                    _debounceTimer = null; // Prevent timer from being reused
+                }
                 
                 // Dispose watcher
                 _watcher?.Dispose();
+            }
+            
+            // Wait for timer outside the lock to avoid deadlock
+            if (timerToDispose != null && waitHandle != null)
+            {
+                timerToDispose.Dispose(waitHandle);
+                waitHandle.WaitOne();
+                waitHandle.Dispose();
             }
 
             // Call base dispose (handles its own locking)
@@ -344,6 +359,12 @@ namespace Rheo.Storage
             var changedFiles = (ConcurrentBag<string>)state!;
             if (!changedFiles.IsEmpty)
             {
+                // Check if directory still exists before creating DirectoryInformation
+                if (!Directory.Exists(FullPath))
+                {
+                    return; // Directory was deleted, skip this callback
+                }
+                
                 var newObject = new DirectoryInformation(FullPath);
                 RaiseChanged(StorageChangeType.Modified, newObject);
                 changedFiles.Clear();
