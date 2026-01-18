@@ -87,15 +87,20 @@ namespace Rheo.Storage.Extensions
         /// <returns>An <see cref="IFileObject"/> representing the newly created file.</returns>
         public IFileObject CreateFile(byte[] data, string? name = null)
         {
-            var fileName = string.IsNullOrWhiteSpace(name)? $"temp_{Guid.NewGuid():N}" : name;
-            var filePath = Path.Combine(FullPath, fileName);
+            lock (StateLock)
+            {
+                ObjectDisposedException.ThrowIf(IsDisposed, this);
+                
+                var fileName = string.IsNullOrWhiteSpace(name)? $"temp_{Guid.NewGuid():N}" : name;
+                var filePath = Path.Combine(FullPath, fileName);
 
-            var file = new FileObject(filePath);
-            file.Write(data);
-            _trackingObjects.Add(file);
+                var file = new FileObject(filePath);
+                file.Write(data);
+                _trackingObjects.Add(file);
 
-            file.Changed += StorageObject_Changed;
-            return file;
+                file.Changed += StorageObject_Changed;
+                return file;
+            }
         }
 
         /// <summary>
@@ -111,15 +116,23 @@ namespace Rheo.Storage.Extensions
         /// representing the newly created file.</returns>
         public async Task<IFileObject> CreateFileAsync(byte[] data, string? name = null, CancellationToken cancellationToken = default)
         {
-            var fileName = string.IsNullOrWhiteSpace(name) ? $"temp_{Guid.NewGuid():N}" : name;
-            var filePath = Path.Combine(FullPath, fileName);
+            FileObject file;
+            lock (StateLock)
+            {
+                ObjectDisposedException.ThrowIf(IsDisposed, this);
+                
+                var fileName = string.IsNullOrWhiteSpace(name) ? $"temp_{Guid.NewGuid():N}" : name;
+                var filePath = Path.Combine(FullPath, fileName);
 
-            var file = new FileObject(filePath);
+                file = new FileObject(filePath);
+                _trackingObjects.Add(file);
+
+                file.Changed += StorageObject_Changed;
+            }
+            
+            // Write outside the lock to avoid holding it during I/O
             using var stream = new MemoryStream(data);
             await file.WriteAsync(stream, cancellationToken);
-            _trackingObjects.Add(file);
-
-            file.Changed += StorageObject_Changed;
             return file;
         }
 
@@ -133,14 +146,19 @@ namespace Rheo.Storage.Extensions
         /// <returns>A TestDirectory representing the newly created subdirectory.</returns>
         public TempDirectory CreateSubdirectory(string? name = null)
         {
-            var dirName = string.IsNullOrWhiteSpace(name) ? $"Subdir_{Guid.NewGuid():N}" : name;
-            var subdirPath = Path.Combine(FullPath, dirName);
+            lock (StateLock)
+            {
+                ObjectDisposedException.ThrowIf(IsDisposed, this);
+                
+                var dirName = string.IsNullOrWhiteSpace(name) ? $"Subdir_{Guid.NewGuid():N}" : name;
+                var subdirPath = Path.Combine(FullPath, dirName);
 
-            var subdir = new TempDirectory(subdirPath);
-            _trackingObjects.Add(subdir);
+                var subdir = new TempDirectory(subdirPath);
+                _trackingObjects.Add(subdir);
 
-            subdir.Changed += StorageObject_Changed;
-            return subdir;
+                subdir.Changed += StorageObject_Changed;
+                return subdir;
+            }
         }
 
         /// <summary>

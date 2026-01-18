@@ -128,7 +128,7 @@ public class FileObjectTests(ITestOutputHelper output, TestDirectoryFixture fixt
         using var sourceFile = TestDirectory.CreateTemplateFile(ResourceType.Image);
         var destDir = TestDirectory.CreateSubdirectory("copy_dest");
         var progressReports = new List<StorageProgress>();
-        var progress = new Progress<StorageProgress>(p => progressReports.Add(p));
+        var progress = new SyncProgress<StorageProgress>(p => progressReports.Add(p));
 
         // Act
         using var copiedFile = sourceFile.Copy(destDir.FullPath, progress, overwrite: false);

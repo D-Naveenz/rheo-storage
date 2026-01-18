@@ -101,6 +101,19 @@ namespace Rheo.Storage.Contracts
         IDirectoryObject Copy(string destination, IProgress<StorageProgress>? progress, bool overwrite = false);
 
         /// <summary>
+        /// Creates a copy of the current directory at the specified destination path with synchronous progress reporting.
+        /// </summary>
+        /// <remarks>Unlike the <see cref="IProgress{T}"/> overload, this method uses synchronous callbacks
+        /// that are invoked immediately on the calling thread during the copy operation.</remarks>
+        /// <param name="destination">The path where the directory object will be copied. This must be a valid destination path and cannot be null
+        /// or empty.</param>
+        /// <param name="progress">An optional synchronous progress callback that receives updates about the copy operation. May be null if progress
+        /// reporting is not required.</param>
+        /// <param name="overwrite">true to overwrite the destination if it already exists; otherwise, false.</param>
+        /// <returns>A new <see cref="IDirectoryObject"/> representing the copied directory at the destination path.</returns>
+        IDirectoryObject Copy(string destination, IProgressCallback<StorageProgress>? progress, bool overwrite = false);
+
+        /// <summary>
         /// Asynchronously creates a copy of the current directory at the specified destination path.
         /// </summary>
         /// <param name="destination">The path where the directory will be copied. This must be a valid directory path.</param>

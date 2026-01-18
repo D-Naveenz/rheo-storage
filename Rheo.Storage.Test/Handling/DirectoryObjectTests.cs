@@ -246,7 +246,7 @@ public class DirectoryObjectTests(ITestOutputHelper output, TestDirectoryFixture
 
         var destParent = TestDirectory.CreateSubdirectory("copy_progress_dest");
         var progressReports = new List<StorageProgress>();
-        var progress = new Progress<StorageProgress>(p => progressReports.Add(p));
+        var progress = new SyncProgress<StorageProgress>(p => progressReports.Add(p));
 
         // Act
         using var copiedDir = sourceDir.Copy(destParent.FullPath, progress, overwrite: false);

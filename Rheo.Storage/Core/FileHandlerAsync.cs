@@ -321,6 +321,12 @@ namespace Rheo.Storage.Core
             IProgress<StorageProgress>? progress,
             CancellationToken cancellationToken)
         {
+            if (overwrite && File.Exists(destinationPath))
+            {
+                // Ensure no other operations are in progress
+                await WaitForFileUnlockAsync(destinationPath, cancellationToken: cancellationToken);
+            }
+
             using var destStream = new FileStream(
                 destinationPath,
                 overwrite ? FileMode.Create : FileMode.CreateNew,
