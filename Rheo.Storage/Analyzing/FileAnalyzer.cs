@@ -9,7 +9,7 @@ namespace Rheo.Storage.Analyzing
     /// </summary>
     /// <remarks>This class is intended for internal use and is not thread-safe. All methods are static and do
     /// not maintain any internal state between calls.</remarks>
-    public static class FileAnalyzer
+    internal static class FileAnalyzer
     {
         private const int SCAN_WINDOW_SIZE = 8192; // 8KB scan window
 
