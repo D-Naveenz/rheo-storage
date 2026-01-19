@@ -1,28 +1,28 @@
 # Rheo.Storage
 
 [![NuGet](https://img.shields.io/nuget/v/Rheo.Storage.svg)](https://www.nuget.org/packages/Rheo.Storage/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE.txt)
+[![License: Apache-2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE.txt)
 
-**A next-generation .NET storage library that goes beyond `FileInfo` and `DirectoryInfo`.**
+**Intelligent file system operations with content-based analysis, real-time progress tracking, and built-in change monitoring.**
 
-Rheo.Storage provides intelligent content analysis, built-in progress tracking, automatic change monitoring, and a modern async-first API that conventional .NET file system classes simply don't offer.
+Rheo.Storage brings signature-based file type detection, comprehensive async operations, and automated event-driven monitoring to .NET file system programming.
 
 ---
 
-## Why Rheo.Storage?
+## What Rheo.Storage Delivers
 
-Traditional .NET APIs (`File`, `Directory`, `FileInfo`, `DirectoryInfo`) lack critical modern features:
+Rheo.Storage provides modern file system capabilities that .NET's built-in APIs don't offer:
 
-| Built-in .NET | Rheo.Storage |
-|---------------|--------------|
-| ❌ Extension-based type detection (unreliable) | ✅ Content-based file analysis (secure) |
-| ❌ No progress reporting | ✅ Built-in `StorageProgress` |
-| ❌ Manual `FileSystemWatcher` setup | ✅ Automatic change monitoring with debouncing |
-| ⚠️ Limited async support | ✅ Full async/await + cancellation |
-| ❌ No MIME types or formatted sizes | ✅ Standards-compliant MIME types, KB/MB/GB formatting |
-| ❌ No automatic rollback | ✅ Automatic cleanup on operation failures |
+| Feature | Built-in .NET | Rheo.Storage |
+|---------|---------------|--------------|
+| **File Type Detection** | Extension-based | ✅ Signature-based content analysis |
+| **Progress Tracking** | Not available | ✅ Real-time `StorageProgress` with transfer speeds |
+| **Change Monitoring** | Manual setup required | ✅ Integrated with automatic debouncing |
+| **Async Operations** | Partial coverage | ✅ Complete async/await with CancellationToken |
+| **Metadata** | Basic properties | ✅ MIME types, formatted sizes, platform-specific info |
+| **Error Recovery** | Manual handling | ✅ Automatic rollback on failures |
 
-**[See detailed comparison →](https://github.com/D-Naveenz/rheo-storage/wiki/Home#why-rheostorage)**
+**[Explore full capabilities →](https://github.com/D-Naveenz/rheo-storage/wiki)**
 
 ---
 
@@ -77,12 +77,12 @@ Console.WriteLine($"Files: {dir.Information.FileCount}");
 Console.WriteLine($"Total Size: {dir.Information.FormattedSize}");
 ```
 
-### Content-Based Security
+### Content-Based File Validation
 
 ```csharp
 using var upload = new FileObject(userUploadPath);
 
-// Don't trust file extensions - analyze actual content
+// Verify file integrity - analyze actual content, not just extensions
 if (upload.Information.ActualExtension != upload.Information.Extension)
 {
     throw new SecurityException(
@@ -90,7 +90,7 @@ if (upload.Information.ActualExtension != upload.Information.Extension)
         $"actually {upload.Information.ActualExtension}");
 }
 
-// Verify MIME type
+// Validate MIME type
 if (upload.Information.MimeType != "image/jpeg")
 {
     throw new InvalidOperationException($"Expected JPEG, got {upload.Information.MimeType}");
@@ -103,7 +103,7 @@ if (upload.Information.MimeType != "image/jpeg")
 
 📖 **[Complete Documentation & Wiki →](https://github.com/D-Naveenz/rheo-storage/wiki)**
 
-- [Why Rheo.Storage?](https://github.com/D-Naveenz/rheo-storage/wiki/Home#why-rheostorage) - Comparison with built-in APIs
+- [Getting Started](https://github.com/D-Naveenz/rheo-storage/wiki) - Overview and key features
 - [FileObject Class](https://github.com/D-Naveenz/rheo-storage/wiki/FileObject-Class) - File operations reference
 - [DirectoryObject Class](https://github.com/D-Naveenz/rheo-storage/wiki/DirectoryObject-Class) - Directory operations reference
 - [Content Analysis](https://github.com/D-Naveenz/rheo-storage/wiki/FileInformation-Class) - File type detection
